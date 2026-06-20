@@ -22,6 +22,27 @@ Thumbs.db
 .vscode/
 .idea/
 
-# 環境変数
+# ============================================================
+# Lapsy アプリ（Node / Next.js / Prisma）
+# ============================================================
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+# next-env.d.ts はコミット対象（無視しない）
+
+# Prisma（生成クライアントを node_modules 外に出力する場合に備える）
+/prisma/generated/
+
+# ビルド/ログ
+*.log
+
+# 環境変数・秘密情報（CLAUDE.md セキュリティ規約）
 .env
-.env.local
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/

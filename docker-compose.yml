@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16
+    container_name: lapsy-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lapsy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lapsy}
+      POSTGRES_DB: ${POSTGRES_DB:-lapsy}
+    ports:
+      - "5432:5432"
+    volumes:
+      - lapsy_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lapsy} -d ${POSTGRES_DB:-lapsy}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  lapsy_pgdata:

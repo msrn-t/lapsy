@@ -133,4 +133,22 @@ describe("ResendMailer", () => {
     });
     expect(r).toEqual({ ok: false, error: "bad key" });
   });
+
+  it("sendPasswordReset: data も error も無いとき {ok:false}（不明なエラー扱い）", async () => {
+    // Resend が data・error の双方を欠く想定外応答を返した場合、成功と誤判定せず
+    // 失敗（ok:false）に倒すこと（§3-G: 送信失敗は内部ログ・ユーザー応答は不変）。
+    const send = vi.fn().mockResolvedValue({ data: null, error: null });
+    vi.doMock("resend", () => ({
+      Resend: class {
+        emails = { send };
+      },
+    }));
+
+    const { ResendMailer: Mailer } = await import("./mailer");
+    const r = await new Mailer("re_test").sendPasswordReset({
+      to: "user@example.com",
+      resetUrl: "http://localhost:3000/password-reset/tok",
+    });
+    expect(r.ok).toBe(false);
+  });
 });

@@ -68,6 +68,13 @@ describe("hashResetToken", () => {
   });
 });
 
+describe("RESET_TOKEN_TTL_MINUTES（有効期限の不変条件・§3-B）", () => {
+  it("有効期限は 60 分（1時間）で固定される", () => {
+    // 設計の確定値（§3-B）。短命化の方針が崩れていないことを回帰として固定する。
+    expect(RESET_TOKEN_TTL_MINUTES).toBe(60);
+  });
+});
+
 describe("computeResetExpiry", () => {
   it("now から RESET_TOKEN_TTL_MINUTES(60分=1時間) 後を返す", () => {
     const now = new Date("2026-06-22T00:00:00.000Z");

@@ -42,6 +42,17 @@ describe("NoopMailer", () => {
     const logged = String(infoSpy.mock.calls[0]?.[0] ?? "");
     expect(logged).toContain("http://localhost:3000/invite/tok");
   });
+
+  it("sendPasswordReset も送信せず {ok:true} を返し、resetUrl をログ出力する", async () => {
+    const r = await new NoopMailer().sendPasswordReset({
+      to: "user@example.com",
+      resetUrl: "http://localhost:3000/password-reset/tok",
+    });
+    expect(r).toEqual({ ok: true });
+    expect(infoSpy).toHaveBeenCalledOnce();
+    const logged = String(infoSpy.mock.calls[0]?.[0] ?? "");
+    expect(logged).toContain("http://localhost:3000/password-reset/tok");
+  });
 });
 
 describe("ResendMailer", () => {
@@ -82,6 +93,43 @@ describe("ResendMailer", () => {
     const r = await new Mailer("re_test").sendInvitation({
       to: "user@example.com",
       inviteUrl: "http://localhost:3000/invite/tok",
+    });
+    expect(r).toEqual({ ok: false, error: "bad key" });
+  });
+
+  it("sendPasswordReset: send が data を返したら {ok:true}", async () => {
+    const send = vi
+      .fn()
+      .mockResolvedValue({ data: { id: "email_1" }, error: null });
+    vi.doMock("resend", () => ({
+      Resend: class {
+        emails = { send };
+      },
+    }));
+
+    const { ResendMailer: Mailer } = await import("./mailer");
+    const r = await new Mailer("re_test").sendPasswordReset({
+      to: "user@example.com",
+      resetUrl: "http://localhost:3000/password-reset/tok",
+    });
+    expect(r).toEqual({ ok: true });
+    expect(send).toHaveBeenCalledOnce();
+  });
+
+  it("sendPasswordReset: send が error を返したら {ok:false,error}", async () => {
+    const send = vi
+      .fn()
+      .mockResolvedValue({ data: null, error: { message: "bad key" } });
+    vi.doMock("resend", () => ({
+      Resend: class {
+        emails = { send };
+      },
+    }));
+
+    const { ResendMailer: Mailer } = await import("./mailer");
+    const r = await new Mailer("re_test").sendPasswordReset({
+      to: "user@example.com",
+      resetUrl: "http://localhost:3000/password-reset/tok",
     });
     expect(r).toEqual({ ok: false, error: "bad key" });
   });

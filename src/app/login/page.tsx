@@ -34,9 +34,9 @@ function BrandIcon() {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; accepted?: string }>;
+  searchParams: Promise<{ error?: string; accepted?: string; reset?: string }>;
 }) {
-  const { error, accepted } = await searchParams;
+  const { error, accepted, reset } = await searchParams;
 
   async function authenticate(formData: FormData) {
     "use server";
@@ -79,6 +79,16 @@ export default async function LoginPage({
             className="mb-6 rounded-xl border border-gray-300 bg-gray-50 px-3 py-2.5 text-xs text-gray-600"
           >
             登録が完了しました。設定したパスワードでログインしてください。
+          </p>
+        ) : null}
+
+        {/* パスワード再設定完了メッセージ（リセット後） */}
+        {reset ? (
+          <p
+            role="status"
+            className="mb-6 rounded-xl border border-gray-300 bg-gray-50 px-3 py-2.5 text-xs text-gray-600"
+          >
+            パスワードを再設定しました。新しいパスワードでログインしてください。
           </p>
         ) : null}
 

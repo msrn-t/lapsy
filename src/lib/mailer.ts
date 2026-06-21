@@ -12,9 +12,14 @@ export interface Mailer {
     to: string;
     inviteUrl: string;
   }): Promise<MailerResult>;
+  sendPasswordReset(args: {
+    to: string;
+    resetUrl: string;
+  }): Promise<MailerResult>;
 }
 
 const SUBJECT = "Lapsy への招待";
+const RESET_SUBJECT = "Lapsy パスワード再設定";
 
 function invitationText(inviteUrl: string): string {
   return [
@@ -33,6 +38,26 @@ function invitationHtml(inviteUrl: string): string {
     "<p>以下のリンクからパスワードを設定して登録を完了してください（リンクの有効期限は72時間です）。</p>",
     `<p><a href="${inviteUrl}">${inviteUrl}</a></p>`,
     "<p>心当たりがない場合はこのメールを破棄してください。</p>",
+  ].join("");
+}
+
+function passwordResetText(resetUrl: string): string {
+  return [
+    "Lapsy のパスワード再設定が要求されました。",
+    "",
+    "以下のリンクから新しいパスワードを設定してください（リンクの有効期限は1時間です）:",
+    resetUrl,
+    "",
+    "心当たりがない場合はこのメールを破棄してください。パスワードは変更されません。",
+  ].join("\n");
+}
+
+function passwordResetHtml(resetUrl: string): string {
+  return [
+    "<p>Lapsy のパスワード再設定が要求されました。</p>",
+    "<p>以下のリンクから新しいパスワードを設定してください（リンクの有効期限は1時間です）。</p>",
+    `<p><a href="${resetUrl}">${resetUrl}</a></p>`,
+    "<p>心当たりがない場合はこのメールを破棄してください。パスワードは変更されません。</p>",
   ].join("");
 }
 
@@ -67,6 +92,31 @@ export class ResendMailer implements Mailer {
     }
     return { ok: true };
   }
+
+  async sendPasswordReset(args: {
+    to: string;
+    resetUrl: string;
+  }): Promise<MailerResult> {
+    // 動的 import + 呼び出し時インスタンス化で、キー無し環境の import を汚さない。
+    const { Resend } = await import("resend");
+    const resend = new Resend(this.apiKey);
+
+    const { data, error } = await resend.emails.send({
+      from: process.env.MAIL_FROM ?? "onboarding@resend.dev",
+      to: args.to,
+      subject: RESET_SUBJECT,
+      text: passwordResetText(args.resetUrl),
+      html: passwordResetHtml(args.resetUrl),
+    });
+
+    if (error) {
+      return { ok: false, error: error.message };
+    }
+    if (!data) {
+      return { ok: false, error: "メール送信に失敗しました（不明なエラー）。" };
+    }
+    return { ok: true };
+  }
 }
 
 /**
@@ -82,6 +132,17 @@ export class NoopMailer implements Mailer {
     // eslint-disable-next-line no-console
     console.info(
       `[NoopMailer] RESEND_API_KEY 未設定のため送信をスキップしました。to=${args.to} inviteUrl=${args.inviteUrl}`,
+    );
+    return { ok: true };
+  }
+
+  async sendPasswordReset(args: {
+    to: string;
+    resetUrl: string;
+  }): Promise<MailerResult> {
+    // eslint-disable-next-line no-console
+    console.info(
+      `[NoopMailer] RESEND_API_KEY 未設定のため送信をスキップしました。to=${args.to} resetUrl=${args.resetUrl}`,
     );
     return { ok: true };
   }

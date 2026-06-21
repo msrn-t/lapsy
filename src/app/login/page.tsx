@@ -11,8 +11,8 @@ import { LoginForm } from "./login-form";
 function BrandIcon() {
   return (
     <svg
-      width="56"
-      height="56"
+      width="112"
+      height="112"
       viewBox="0 0 512 512"
       role="img"
       aria-label="Lapsy"

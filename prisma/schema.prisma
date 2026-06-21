@@ -27,6 +27,7 @@ enum RecordStatus {
 enum InvitationStatus {
   pending
   accepted
+  expired   // 期限切れ pending を遷移させ再招待を可能にする（LAP-003 §3-A）
 }
 
 model User {

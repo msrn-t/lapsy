@@ -25,7 +25,7 @@ npm install
 
 導入されるのは next(15) / react(19) / typescript(5) / prisma(6) / @prisma/client(6) / tailwindcss(4) と、
 認証基盤（LAP-002）で追加した next-auth(v5 beta) / bcryptjs、テスト/seed 用の vitest / tsx など。
-`resend`（メール送信）は後続チケット（招待 LAP-003 / リセット LAP-005）で導入します。
+招待フロー（LAP-003）で `resend`（メール送信）を追加しています。
 
 ## 2. 環境変数
 
@@ -49,6 +49,19 @@ openssl rand -base64 32      # 出力を AUTH_SECRET="..." に貼る
 # ADMIN_PASSWORD="<任意の強いパスワード>"
 ```
 
+招待フロー（LAP-003）で以下も `.env` に設定できます（実値は `.env` のみ・コミット禁止）:
+
+```bash
+# Resend（メール送信）。未設定でも build / test / 招待作成は動作する。
+# 未設定時は NoopMailer にフォールバックし、メール送信のみスキップして
+# サーバログへ inviteUrl を出力する（ローカルで送信なしの動作確認が可能）。
+# RESEND_API_KEY="re_xxxxxxxx"
+# 送信元アドレス。開発はテスト用ドメイン onboarding@resend.dev（既定）。
+# 本番はドメイン認証後に独自ドメインへ。
+# MAIL_FROM="onboarding@resend.dev"
+# 招待リンクの base URL は AUTH_URL を流用する（別途設定は不要）。
+```
+
 ## 3. データベース起動（PostgreSQL）
 
 ```bash
@@ -64,6 +77,13 @@ healthcheck（`pg_isready`）が通るまで数秒かかります。
 初期マイグレーション（`prisma/migrations/<ts>_init`）には全テーブル + 2 つの部分ユニークインデックスが含まれます。
 認証基盤（LAP-002）で **新規マイグレーション 1 本**（`<ts>_auth_session_strategy`）を追加しています。
 内容は Auth.js Adapter 用 3 テーブル（Account / Session / VerificationToken）の DROP と `User.sessionVersion` 列追加です。
+招待フロー（LAP-003）で **新規マイグレーション 1 本**（`<ts>_invitation_status_expired`）を追加しています。
+内容は `ALTER TYPE "InvitationStatus" ADD VALUE 'expired';`（enum 値追加のみ）です。
+既存データ・行・インデックスへの影響はなく、`invitation_email_pending_unique`（`WHERE status='pending'`）は
+そのまま保持されます。期限切れ pending を `expired` へ遷移させることで部分ユニークの対象外にし、再招待を可能にします。
+
+> enum 値の追加は `npx prisma migrate dev --name invitation_status_expired` で生成します
+> （生成 SQL は単独の `ALTER TYPE ... ADD VALUE` のみ）。**既存マイグレーションは編集しません。**
 
 > **既存の `_init` マイグレーションは編集しません**（checksum drift を避けるため）。スキーマ変更は常に新規マイグレーションで行います。
 
@@ -118,6 +138,37 @@ npm run dev
 **強制ログアウト（失効）の仕組み:** 後続 LAP-003/004 が `src/lib/auth-revocation.ts` の
 `bumpSessionVersion(userId)` を呼ぶと対象ユーザーの `sessionVersion` が増え、既存 JWT は
 次回アクセスの照合で弾かれます（cookie 期限前でも無効化相当）。本チケットでは関数定義のみ提供。
+
+## 7. 招待フロー（LAP-003）
+
+管理者がメールアドレスを指定して招待し、被招待者が招待リンクからパスワードを設定して登録するフロー。
+
+**Resend 設定（任意）:** `RESEND_API_KEY` を `.env` に設定すると実際にメール送信されます。
+**未設定でも build / test / 招待作成は動作し、メール送信のみスキップ**されます（NoopMailer に
+フォールバックし、サーバログへ inviteUrl を出力）。開発の送信元は `MAIL_FROM`（既定
+`onboarding@resend.dev` = Resend のテスト用ドメイン）です。
+
+**動作確認手順:**
+
+```bash
+npm run dev
+# 1. 管理者でログイン（/login → ADMIN_EMAIL / ADMIN_PASSWORD）
+# 2. /admin/invite を開く（管理者専用。非管理者・未認証はアクセス不可）
+#    → 招待先メールアドレスを入力して「招待を送信」
+#    → キーありなら受信メール、キーなしなら dev サーバのログに inviteUrl が出力される
+# 3. その inviteUrl（/invite/<token>）を開く
+#    → パスワード設定フォームが表示される（8文字以上）
+#    → 登録すると /login?accepted=1 へ誘導される（成功メッセージ表示）
+# 4. 設定したパスワードで新規ユーザーとしてログインできる
+```
+
+**境界ケースの確認ポイント:**
+
+- 登録済みメールへの招待 → エラー表示（招待されない）
+- 有効な招待が既にあるメールへの再招待 → 重複エラー（72時間の有効期限切れ後は再招待可）
+- 期限切れ後の再招待 → 既存 pending が `expired` へ遷移し、新しい pending が作成される
+- 期限切れ・使用済み（accepted）・不正（存在しない）トークンの `/invite/<token>` → 理由別エラー画面
+- 同じ招待リンクを 2 回受諾 → 2 回目は二重受諾として弾かれる
 
 ## その他のスクリプト
 

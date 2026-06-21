@@ -8,9 +8,9 @@ import { signIn } from "@/auth";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; accepted?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, accepted } = await searchParams;
 
   async function authenticate(formData: FormData) {
     "use server";
@@ -35,6 +35,15 @@ export default async function LoginPage({
   return (
     <main className="mx-auto flex max-w-sm flex-col gap-6 py-16">
       <h1 className="text-2xl font-bold tracking-tight">ログイン</h1>
+
+      {accepted ? (
+        <p
+          role="status"
+          className="rounded border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300"
+        >
+          登録が完了しました。設定したパスワードでログインしてください。
+        </p>
+      ) : null}
 
       {error ? (
         <p

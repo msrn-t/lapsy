@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth-helpers";
+import { requireAdminId } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { getMailer } from "@/lib/mailer";
 import {
@@ -13,7 +13,7 @@ import {
 
 // 管理者専用 招待送信 UI（LAP-003 §3-F）。
 // 認可は二層: (1) authorized で /admin 配下を保護（auth.config.ts）、
-// (2) server action / ページ冒頭で getCurrentUser().isAdmin を必須化する。
+// (2) server action / ページ冒頭で requireAdminId()（共通ヘルパ）で管理者を必須化する。
 // 招待リンクの base URL は AUTH_URL を流用する（§4 / .env.example）。
 
 type ResultKind =
@@ -26,13 +26,6 @@ type ResultKind =
 
 function baseUrl(): string {
   return process.env.AUTH_URL ?? "http://localhost:3000";
-}
-
-async function requireAdminId(): Promise<string> {
-  const me = await getCurrentUser();
-  if (!me) redirect("/login");
-  if (!me.isAdmin) redirect("/dashboard");
-  return me.id;
 }
 
 export default async function AdminInvitePage({

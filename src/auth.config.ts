@@ -16,7 +16,13 @@ export const authConfig = {
     // 保護対象ルートで未認証なら false → /login へリダイレクトされる。
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isOnProtected = nextUrl.pathname.startsWith("/dashboard");
+      // /dashboard と /admin 配下を保護対象とする（LAP-003 §3-F）。
+      // /admin の管理者判定（isAdmin）は middleware（edge）では行わず、
+      // ページ/サーバアクション側で getCurrentUser().isAdmin を必須化する二層防御。
+      // /invite/[token] は公開のまま（保護対象に含めない）。
+      const isOnProtected =
+        nextUrl.pathname.startsWith("/dashboard") ||
+        nextUrl.pathname.startsWith("/admin");
 
       if (isOnProtected) {
         return isLoggedIn; // 未認証なら false → signIn ページへ

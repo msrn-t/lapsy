@@ -384,4 +384,65 @@ describe("parsePresetConfig（読込後の防御的 narrowing）", () => {
     const raw = [{ workSec: 30, breakSec: -5 }];
     expect(parsePresetConfig(raw)).toEqual([{ workSec: 30, breakSec: -5 }]);
   });
+
+  it("余分なプロパティを持つ要素は workSec/breakSec のみへ narrowing する", () => {
+    const raw = [{ workSec: 1500, breakSec: 300, label: "集中", id: 1 }];
+    expect(parsePresetConfig(raw)).toEqual([{ workSec: 1500, breakSec: 300 }]);
+  });
+
+  it("NaN/Infinity を含む要素は整数でないため除外する", () => {
+    const raw = [
+      { workSec: NaN, breakSec: 0 },
+      { workSec: Infinity, breakSec: 0 },
+      { workSec: 1500, breakSec: 300 },
+    ];
+    expect(parsePresetConfig(raw)).toEqual([{ workSec: 1500, breakSec: 300 }]);
+  });
+
+  it("空配列はそのまま空配列を返す", () => {
+    expect(parsePresetConfig([])).toEqual([]);
+  });
+});
+
+// 純関数の追加エッジケース（tester 追補・LAP-008 §9）。
+describe("validatePresetInput（追加エッジケース）", () => {
+  it("数値型の負の workSec（小数でなく整数の負値）は範囲下限で lap_work_too_short", () => {
+    // -10 は Number.isInteger を満たすため invalid_number ではなく範囲判定に進む。
+    expect(
+      validatePresetInput(input({ laps: [{ workSec: -10, breakSec: 0 }] })),
+    ).toEqual({ ok: false, reason: "lap_work_too_short" });
+  });
+
+  it("先頭+符号付き整数文字列はパースされ ok になる（Number 準拠）", () => {
+    const result = validatePresetInput(
+      input({ laps: [{ workSec: "+1500", breakSec: "+0" }] }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.config[0]).toEqual({ workSec: 1500, breakSec: 0 });
+    }
+  });
+
+  it("ラップ走査内で break_negative は break_too_long より先に判定される", () => {
+    // 同一ラップで break が負ければ負値エラーを返す（順序固定）。
+    expect(
+      validatePresetInput(input({ laps: [{ workSec: 1500, breakSec: -5 }] })),
+    ).toEqual({ ok: false, reason: "break_negative" });
+  });
+
+  it("有効な breakSec 上限直前（14399）は ok", () => {
+    const result = validatePresetInput(
+      input({ laps: [{ workSec: 1500, breakSec: MAX_BREAK_SEC - 1 }] }),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it("16進数表記文字列（0x...）は invalid_number ではなく Number 準拠でパースされる挙動を固定", () => {
+    // Number("0x3c") === 60。実装の現挙動を回帰テストとして固定する。
+    const result = validatePresetInput(
+      input({ laps: [{ workSec: "0x3c", breakSec: "0" }] }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.config[0].workSec).toBe(60);
+  });
 });

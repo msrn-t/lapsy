@@ -29,4 +29,16 @@ describe("password hashing (bcryptjs)", () => {
     await expect(verifyPassword("same", a)).resolves.toBe(true);
     await expect(verifyPassword("same", b)).resolves.toBe(true);
   });
+
+  it("不正な形式のハッシュでも throw せず false を返す（authorize の堅牢性）", async () => {
+    // DB の passwordHash が破損/非 bcrypt 形式でも authorize が 500 にならず
+    // 認証失敗（null）に倒れることを保証する。
+    await expect(verifyPassword("any", "not-a-bcrypt-hash")).resolves.toBe(
+      false,
+    );
+  });
+
+  it("空文字ハッシュでも throw せず false を返す", async () => {
+    await expect(verifyPassword("any", "")).resolves.toBe(false);
+  });
 });

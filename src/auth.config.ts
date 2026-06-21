@@ -16,7 +16,12 @@ export const authConfig = {
     // 保護対象ルートで未認証なら false → /login へリダイレクトされる。
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isOnProtected = nextUrl.pathname.startsWith("/dashboard");
+      // /dashboard と /admin 配下をログイン必須で保護する（LAP-004 §3-5）。
+      // isAdmin 判定は edge では行わない（Prisma が edge 非互換のため）。
+      // 非管理者の /admin アクセス遮断は node 層の requireAdmin が担う二層防御。
+      const isOnProtected =
+        nextUrl.pathname.startsWith("/dashboard") ||
+        nextUrl.pathname.startsWith("/admin");
 
       if (isOnProtected) {
         return isLoggedIn; // 未認証なら false → signIn ページへ

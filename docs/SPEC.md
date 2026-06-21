@@ -116,7 +116,7 @@ IT系資格の取得に向けた学習を支援するWebアプリケーション
 - ORM: Prisma
 - スタイリング: Tailwind CSS（レスポンシブ対応を前提とする）
 - 認証ライブラリ: NextAuth.js
-- セッション管理: Database セッション戦略（NextAuth + Prisma Adapter）。セッション情報をDBで管理し、招待取り消し・強制ログアウト等の即時無効化に対応する（ただし NextAuth × DB セッションの実現性に既知の制約あり。§10 未決事項を参照）
+- セッション管理: JWT セッション戦略（NextAuth.js / Credentials プロバイダ）。即時無効化（招待取り消し・強制ログアウト）は、JWT に保持した `sessionVersion` を認証時に DB の `User.sessionVersion` と照合し、不一致なら無効とする方式で実現する。サーバー側で当該ユーザーの `sessionVersion` をインクリメントすると、発行済みの全トークンが一括失効する（毎リクエストで `User.sessionVersion` の軽量参照が発生する点はトレードオフとして許容する）
 - メール送信: Resend（招待メール・パスワードリセットに使用。開発時はテスト用ドメイン、本番はドメイン確定後に独自ドメインを認証）
 - 初期管理者: Prisma の seed スクリプトで投入する。認証情報はハードコードせず環境変数（ADMIN_EMAIL / ADMIN_PASSWORD 等）から読み込み、パスワードはハッシュ化して保存する
 - 実行環境: Ubuntu（VPS）
@@ -209,7 +209,7 @@ materialize 時、`countedSeconds < 60`（1分未満）の作業ブロックは�
 
 ### 7.6 Prisma スキーマ（ドラフト）
 
-§7 の決定事項を反映した Prisma スキーマのドラフトを以下に示す。フィールド名・補助項目は実装時に調整可。認証関連モデル（Account / Session / VerificationToken）は §10「認証セッション戦略」の決定により増減する。
+§7 の決定事項を反映した Prisma スキーマのドラフトを以下に示す。フィールド名・補助項目は実装時に調整可。認証は JWT セッション戦略（§6）で確定したため、NextAuth の DB アダプタ用モデル（Account / Session / VerificationToken）は使用せず、即時無効化は `User.sessionVersion` で行う。
 
 ```prisma
 generator client {
@@ -238,14 +238,14 @@ enum InvitationStatus {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  passwordHash  String                            // bcrypt 等でハッシュ化（§5）
-  name          String?
-  isAdmin       Boolean   @default(false)
-  emailVerified DateTime?                          // NextAuth Adapter 用
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String                            // bcrypt 等でハッシュ化（§5）
+  name           String?
+  isAdmin        Boolean  @default(false)
+  sessionVersion Int      @default(0)              // JWT 即時無効化用（§6）。インクリメントで発行済み全トークンを失効
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   topics              Topic[]
   presets             Preset[]
@@ -253,10 +253,6 @@ model User {
   studyRecords        StudyRecord[]
   sentInvitations     Invitation[]         @relation("InvitedBy")
   passwordResetTokens PasswordResetToken[]
-
-  // NextAuth Adapter 用（§10 の決定により構成変更の可能性あり）
-  accounts Account[]
-  sessions Session[]
 }
 
 model Invitation {
@@ -362,43 +358,10 @@ model StudyRecord {
   @@index([userId, topicId])
 }
 
-// ── NextAuth (Auth.js) Prisma Adapter 用モデル ──
-// §10「認証セッション戦略」の決定により、DB セッション戦略で Session を用いるか、
-// JWT 戦略へ寄せて Session を省くか等、構成が変わる可能性がある。
-
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-}
+// 認証は JWT セッション戦略（§6）のため、NextAuth の DB アダプタ用モデル
+// （Account / Session / VerificationToken）は定義しない。
+// 招待・パスワードリセットは独自の Invitation / PasswordResetToken で扱う。
+// 将来 OAuth 連携を追加する場合（現状スコープ外）にアダプタと Account を再導入する。
 ```
 
 > 補足: 部分ユニークインデックス（`Invitation` の pending 重複防止・`StudySession` の running 1本制限）は Prisma スキーマ構文では表現できないため、`prisma migrate` 生成後のマイグレーション SQL に上記 `CREATE UNIQUE INDEX ... WHERE ...` を手動追記する。
@@ -432,9 +395,8 @@ model VerificationToken {
 
 ## 10. 未決事項（Open Questions）
 
-> ポモドーロ計測のデータモデルは §7 で確定済み。残る検討事項は以下。
+> ポモドーロ計測のデータモデルは §7、認証セッション戦略は §6（JWT + `sessionVersion` 照合）で確定済み。残る検討事項は以下。
 
-- [ ] **認証セッション戦略の確定**: NextAuth.js（Auth.js）の Credentials プロバイダは JWT セッション戦略でのみ動作し、Database セッション戦略は公式に非サポート（`UnsupportedStrategy` エラー）。§6 の「即時無効化のための DB セッション」と正面衝突する。(a) DB セッションを Credentials ログイン時に手動生成する独自実装で回避 / (b) JWT 戦略＋ユーザー単位の失効バージョン照合で即時無効化を代替 / (c) Lucia 等 DB セッション前提のライブラリへ変更、のいずれかを architect が判断する
 - [ ] **トピック削除時のデータ整合**: トピックを物理削除した際、紐づく StudyRecord/StudySession をカスケード削除すると横断ヒートマップ・累計の過去履歴が欠落する。物理削除を制限する／論理削除にする／記録は保持する等の方針を決定する（アーカイブ機能とは別の論点）
 - [ ] ドメインが未定。SSL（Let's Encrypt）に加え、招待・パスワードリセットメールの到達性（SPF/DKIM/DMARC 設定）も独自ドメイン確定に依存する。確定までは開発用にIPアドレス直アクセス／テスト用ドメインで進行可能
 

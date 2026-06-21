@@ -60,7 +60,7 @@ export default async function LoginPage({
 
   return (
     <main className="flex min-h-[80vh] flex-col items-center justify-center">
-      <div className="w-full max-w-[380px] rounded-2xl border border-gray-300 bg-white p-8">
+      <div className="w-full max-w-[420px] rounded-2xl border border-gray-300 bg-white p-8">
         {/* ブランド */}
         <div className="mb-8 flex flex-col items-center gap-3">
           <BrandIcon />

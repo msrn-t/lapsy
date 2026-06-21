@@ -80,7 +80,7 @@ function Fields() {
 
       {/* ログイン状態を保持 + パスワードリセット導線（同一行・同じ高さ・リンク右揃え） */}
       <div className="mb-6 flex items-center justify-between gap-3">
-        <label className="flex items-center gap-2 text-xs text-gray-700">
+        <label className="flex items-center gap-2 whitespace-nowrap text-xs text-gray-700">
           <input
             type="checkbox"
             name="remember"
@@ -90,7 +90,7 @@ function Fields() {
         </label>
         <a
           href="/password-reset"
-          className="text-xs text-gray-700 underline underline-offset-2 hover:text-gray-900"
+          className="whitespace-nowrap text-xs text-gray-700 underline underline-offset-2 hover:text-gray-900"
         >
           パスワードをお忘れですか？
         </a>

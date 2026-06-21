@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   validateTopicInput,
   evaluateTopicDeletion,
+  computeArchiveMutation,
+  computeRestoreMutation,
   MAX_TITLE_LENGTH,
 } from "./topic";
 
@@ -237,5 +239,39 @@ describe("evaluateTopicDeletion（削除可否判定）", () => {
         studySessionCount: 5,
       }),
     ).toEqual({ ok: false, reason: "has_records" });
+  });
+});
+
+// LAP-007 §9 のテスト対象。アーカイブ／復元の mutation 生成（UPDATE 用 data）を
+// 固定値で検証する。DB に触れない純関数なので、フラグと archivedAt の設定／クリアを固定する。
+describe("computeArchiveMutation（アーカイブ時の更新 data）", () => {
+  it("固定 now を渡すと { isArchived:true, archivedAt:<その now> } を返す", () => {
+    const now = new Date("2026-06-22T09:30:00.000Z");
+    expect(computeArchiveMutation(now)).toEqual({
+      isArchived: true,
+      archivedAt: now,
+    });
+  });
+
+  it("archivedAt は渡した now と同一の時刻インスタンスを保持する（変換しない）", () => {
+    const now = new Date("2026-01-01T00:00:00.000Z");
+    const mutation = computeArchiveMutation(now);
+    expect(mutation.isArchived).toBe(true);
+    expect(mutation.archivedAt).toBe(now);
+  });
+});
+
+describe("computeRestoreMutation（復元時の更新 data）", () => {
+  it("{ isArchived:false, archivedAt:null } を返す（archivedAt を null クリア）", () => {
+    expect(computeRestoreMutation()).toEqual({
+      isArchived: false,
+      archivedAt: null,
+    });
+  });
+
+  it("不変条件: 復元では isArchived===false ⟺ archivedAt===null", () => {
+    const mutation = computeRestoreMutation();
+    expect(mutation.isArchived).toBe(false);
+    expect(mutation.archivedAt).toBeNull();
   });
 });

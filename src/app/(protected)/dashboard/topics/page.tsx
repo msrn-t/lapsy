@@ -4,7 +4,11 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
-import { validateTopicInput, evaluateTopicDeletion } from "@/lib/topic";
+import {
+  validateTopicInput,
+  evaluateTopicDeletion,
+  computeArchiveMutation,
+} from "@/lib/topic";
 
 // 学習トピックの一覧 + 作成 + 削除（LAP-006 §3 / §4）。
 // 認証・データ分離は二層: (1) auth.config の authorized で /dashboard 配下をログイン必須に保護、
@@ -17,6 +21,7 @@ type ResultKind =
   | "created"
   | "updated"
   | "deleted"
+  | "archived" // アーカイブ成功（LAP-007）
   | "title_required"
   | "title_too_long"
   | "invalid_deadline"
@@ -28,6 +33,7 @@ const SUCCESS_KINDS: ReadonlySet<ResultKind> = new Set<ResultKind>([
   "created",
   "updated",
   "deleted",
+  "archived",
 ]);
 
 function isResultKind(value: string): value is ResultKind {
@@ -60,7 +66,9 @@ export default async function TopicsPage({
   const { result } = await searchParams;
 
   const topics = await prisma.topic.findMany({
-    where: { userId }, // ← データ分離（§7.5）
+    // データ分離（§7.5）＋ アーカイブ済みを通常一覧から除外（LAP-007 §3-2）。
+    // @@index([userId, isArchived]) がそのまま効く。
+    where: { userId, isArchived: false },
     select: {
       id: true,
       title: true,
@@ -69,12 +77,19 @@ export default async function TopicsPage({
       createdAt: true,
     },
     orderBy: [{ createdAt: "desc" }],
-    // 一覧での isArchived 出し分けは LAP-007 スコープ。本チケットは全件表示（§3 注記）。
   });
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 py-12">
-      <h1 className="text-2xl font-bold tracking-tight">学習トピック</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold tracking-tight">学習トピック</h1>
+        <Link
+          href="/dashboard/topics/archived"
+          className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900"
+        >
+          アーカイブ済みを表示
+        </Link>
+      </div>
 
       {result && isResultKind(result) ? <ResultBanner kind={result} /> : null}
 
@@ -148,6 +163,15 @@ export default async function TopicsPage({
                 >
                   編集
                 </Link>
+                <form action={archiveTopic}>
+                  <input type="hidden" name="id" value={t.id} />
+                  <button
+                    type="submit"
+                    className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900"
+                  >
+                    アーカイブ
+                  </button>
+                </form>
                 <form action={deleteTopic}>
                   <input type="hidden" name="id" value={t.id} />
                   <button
@@ -164,8 +188,7 @@ export default async function TopicsPage({
       )}
 
       <p className="text-sm text-gray-500">
-        ※ 学習記録のあるトピックは削除できません。記録を残したまま一覧から外す場合はアーカイブ（後続機能
-        LAP-007）をご利用ください。
+        ※ 学習記録のあるトピックは削除できません。記録を残したまま一覧から外す場合は「アーカイブ」をご利用ください。アーカイブ済みは「アーカイブ済みを表示」から閲覧・復元できます。
       </p>
     </main>
   );
@@ -255,12 +278,39 @@ async function deleteTopic(formData: FormData) {
   back("deleted");
 }
 
+// アーカイブ（server action・LAP-007 §3-1 / §4-A）。
+// UPDATE のみ（StudyRecord/StudySession は物理削除しない・§7.4 の前提を担保）。
+// where に isArchived:false を含めることで、既アーカイブ・不在・他人の行はすべて
+// count===0 → not_found に一様化する（冪等・§3-5）。
+async function archiveTopic(formData: FormData) {
+  "use server";
+
+  const userId = await requireUserId();
+  const id = String(formData.get("id") ?? "");
+
+  const back = (kind: ResultKind) =>
+    redirect(`/dashboard/topics?result=${kind}`);
+
+  const { count } = await prisma.topic.updateMany({
+    where: { id, userId, isArchived: false }, // ← データ分離（§7.5）＋ 冪等
+    data: computeArchiveMutation(new Date()),
+  });
+  if (count === 0) {
+    back("not_found"); // 既アーカイブ・不在・他人の行を一様に扱う。
+    return;
+  }
+
+  revalidatePath("/dashboard/topics");
+  back("archived");
+}
+
 function ResultBanner({ kind }: { kind: ResultKind }) {
   const ok = SUCCESS_KINDS.has(kind);
   const messages: Record<ResultKind, string> = {
     created: "トピックを作成しました。",
     updated: "トピックを更新しました。",
     deleted: "トピックを削除しました。",
+    archived: "トピックをアーカイブしました。",
     title_required: "タイトルは必須です。入力してください。",
     title_too_long: "タイトルが長すぎます。短くしてください。",
     invalid_deadline: "期限日の形式が正しくありません。",
@@ -268,7 +318,7 @@ function ResultBanner({ kind }: { kind: ResultKind }) {
     delete_running:
       "このトピックは実行中のランがあります。ランを終了してから操作してください。",
     delete_has_records:
-      "このトピックには学習記録があるため削除できません。記録を残す場合はアーカイブをご利用ください（アーカイブは後続機能 LAP-007）。",
+      "このトピックには学習記録があるため削除できません。記録を残す場合はアーカイブをご利用ください。",
   };
 
   return (

@@ -78,8 +78,8 @@ function Fields() {
         </div>
       </div>
 
-      {/* ログイン状態を保持 + パスワードリセット導線 */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
+      {/* ログイン状態を保持 + パスワードリセット導線（同一行・同じ高さ・リンク右揃え） */}
+      <div className="mb-6 flex items-center justify-between gap-3">
         <label className="flex items-center gap-2 text-xs text-gray-700">
           <input
             type="checkbox"

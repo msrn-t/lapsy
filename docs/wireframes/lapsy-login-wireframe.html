@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lapsy — ログイン画面 ワイヤーフレーム（パス1）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* パス1: グレースケールのみ。彩色は当てない */
+    --page:#E9E9E9;
+    --panel:#F3F3F3;
+    --card:#FFFFFF;
+    --fill:#F4F4F4;
+    --line:#CFCFCF;
+    --line-2:#B6B6B6;
+    --line-strong:#9A9A9A;
+    --ink:#454545;
+    --ink-dim:#7E7E7E;
+    --placeholder:#B2B2B2;
+    --btn:#6F6F6F;
+    --btn-ink:#FFFFFF;
+    --marker:#5C5C5C;
+    --error:#7A7A7A;       /* エラーもグレースケールで表現（点線＋濃いグレー） */
+    /* 間隔スケール 8/12/16/24/32 */
+    --s1:8px; --s2:12px; --s3:16px; --s4:24px; --s5:32px;
+    /* 角丸: カード16 / 入力・ボタン12 */
+    --r-card:16px; --r-ctl:12px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--page);
+    font-family:"Noto Sans JP",sans-serif;
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1200px;margin:0 auto;padding:var(--s4);}
+
+  /* ── ドキュメントヘッダ ── */
+  .doc-head{
+    border:1px dashed var(--line-2);
+    border-radius:var(--r-card);
+    background:var(--panel);
+    padding:var(--s4);
+    margin-bottom:var(--s5);
+  }
+  .doc-head h1{
+    font-family:"Fredoka",sans-serif;font-weight:600;
+    font-size:22px;margin:0 0 6px;color:var(--ink);
+  }
+  .doc-head p{margin:0;font-size:13px;color:var(--ink-dim);line-height:1.7;}
+  .tagrow{margin-top:var(--s2);display:flex;flex-wrap:wrap;gap:var(--s1);}
+  .tag{
+    font-size:11px;color:var(--ink-dim);background:#E4E4E4;
+    border:1px solid var(--line);border-radius:999px;padding:3px 10px;
+  }
+
+  /* ── バリエーション並べ ── */
+  .variants{
+    display:grid;grid-template-columns:1fr;gap:var(--s5);
+  }
+  @media(min-width:980px){
+    .variants{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);align-items:start;}
+  }
+
+  .variant{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--r-card);
+    padding:var(--s4);
+  }
+  .variant > h2{
+    font-family:"Fredoka",sans-serif;font-weight:500;
+    font-size:14px;letter-spacing:.04em;color:var(--ink-dim);
+    margin:0 0 var(--s4);text-transform:uppercase;
+    display:flex;align-items:center;gap:8px;
+  }
+  .vp-badge{
+    font-family:"Noto Sans JP";font-size:11px;color:var(--ink-dim);
+    border:1px solid var(--line-2);border-radius:6px;padding:2px 8px;background:#EDEDED;
+  }
+
+  /* ── 疑似ビューポート（デバイス枠） ── */
+  .viewport{
+    background:var(--page);
+    border:1px solid var(--line-2);
+    border-radius:14px;
+    position:relative;
+  }
+  .viewport.pc{padding:var(--s5) var(--s4);min-height:560px;
+    display:flex;align-items:center;justify-content:center;}
+  .viewport.mobile{padding:var(--s4) var(--s2);max-width:360px;margin:0 auto;min-height:600px;
+    display:flex;align-items:center;justify-content:center;}
+  /* ブラウザ/端末バー */
+  .chrome-bar{
+    position:absolute;top:0;left:0;right:0;height:26px;
+    border-bottom:1px dashed var(--line-2);
+    display:flex;align-items:center;gap:6px;padding:0 12px;
+    color:var(--ink-dim);font-size:10px;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--line-2);}
+  .chrome-label{margin-left:auto;}
+
+  /* ── ログインカード ── */
+  .login-card{
+    width:100%;max-width:380px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--r-card);
+    padding:var(--s5) var(--s4);
+    margin-top:18px;
+  }
+  .mobile .login-card{max-width:100%;padding:var(--s4) var(--s4);}
+
+  /* ロゴ（グレースケール化したアイコン＋ワードマーク） */
+  .brand{display:flex;flex-direction:column;align-items:center;gap:var(--s2);margin-bottom:var(--s5);}
+  .brand .icon{width:56px;height:56px;}
+  .brand .word{
+    font-family:"Fredoka",sans-serif;font-weight:600;font-size:26px;color:var(--ink);
+    letter-spacing:.01em;
+  }
+  .brand .sub{font-size:11px;color:var(--ink-dim);margin-top:-4px;}
+
+  .field{margin-bottom:var(--s4);}
+  .field label{display:block;font-size:12px;color:var(--ink);margin-bottom:var(--s1);font-weight:500;}
+  .input{
+    height:44px;border:1px solid var(--line-2);background:var(--fill);
+    border-radius:var(--r-ctl);display:flex;align-items:center;padding:0 var(--s2);
+    color:var(--placeholder);font-size:13px;
+  }
+  .input.with-action{justify-content:space-between;}
+  .eye{
+    font-size:11px;color:var(--ink-dim);border:1px solid var(--line);border-radius:8px;
+    padding:3px 8px;background:#EFEFEF;white-space:nowrap;
+  }
+  /* エラー状態（点線枠＋メッセージ）。色は使わずグレースケール */
+  .input.error{border:1.5px solid var(--error);border-style:dashed;}
+  .err-msg{
+    font-size:11px;color:var(--error);margin-top:6px;display:flex;align-items:center;gap:5px;
+  }
+  .err-msg::before{content:"!";display:inline-flex;align-items:center;justify-content:center;
+    width:14px;height:14px;border:1px solid var(--error);border-radius:50%;font-size:9px;font-weight:700;}
+  .help-slot{font-size:11px;color:var(--ink-dim);margin-top:6px;}
+
+  /* checkbox + リンク行 */
+  .row-between{display:flex;align-items:center;justify-content:space-between;gap:var(--s2);margin-bottom:var(--s4);flex-wrap:wrap;}
+  .check{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink);}
+  .box{width:16px;height:16px;border:1px solid var(--line-strong);border-radius:5px;background:var(--card);}
+  .link{font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:2px;}
+
+  .btn{
+    height:46px;border-radius:var(--r-ctl);background:var(--btn);color:var(--btn-ink);
+    display:flex;align-items:center;justify-content:center;font-family:"Fredoka",sans-serif;
+    font-weight:500;font-size:15px;letter-spacing:.02em;
+  }
+
+  .form-error{
+    border:1px dashed var(--error);border-radius:var(--r-ctl);
+    padding:10px var(--s2);font-size:12px;color:var(--error);
+    margin-bottom:var(--s4);display:flex;gap:8px;align-items:flex-start;
+  }
+  .form-error::before{content:"!";flex:none;width:16px;height:16px;border:1px solid var(--error);
+    border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-top:1px;}
+
+  .foot-note{text-align:center;font-size:11px;color:var(--ink-dim);margin-top:var(--s4);line-height:1.6;}
+
+  /* 注釈マーカー */
+  .mk{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:18px;height:18px;border-radius:50%;background:var(--marker);color:#fff;
+    font-size:11px;font-family:"Fredoka";font-weight:600;flex:none;
+  }
+  .anchored{position:relative;}
+  .anchored > .mk{position:absolute;top:-9px;left:-9px;z-index:2;}
+  .mobile .anchored > .mk{left:-7px;}
+
+  /* ── 注釈レジェンド ── */
+  .legend{margin-top:var(--s4);}
+  .legend h3{
+    font-family:"Fredoka";font-weight:500;font-size:12px;letter-spacing:.04em;
+    color:var(--ink-dim);text-transform:uppercase;margin:0 0 var(--s2);
+  }
+  .legend ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--s2);}
+  .legend li{display:flex;gap:var(--s2);align-items:flex-start;font-size:12px;line-height:1.6;color:var(--ink);}
+  .legend li b{font-weight:700;}
+  .legend .note{color:var(--ink-dim);}
+
+  /* インタラクション/状態メモ */
+  .notes{
+    margin-top:var(--s5);background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--r-card);padding:var(--s4);
+  }
+  .notes h2{font-family:"Fredoka";font-weight:600;font-size:16px;margin:0 0 var(--s4);color:var(--ink);}
+  .notes-grid{display:grid;grid-template-columns:1fr;gap:var(--s4);}
+  @media(min-width:760px){.notes-grid{grid-template-columns:1fr 1fr;}}
+  .note-card{border:1px dashed var(--line-2);border-radius:var(--r-ctl);padding:var(--s4);background:var(--card);}
+  .note-card h4{margin:0 0 var(--s2);font-size:13px;font-family:"Fredoka";font-weight:500;color:var(--ink);}
+  .note-card ul{margin:0;padding-left:18px;font-size:12px;line-height:1.8;color:var(--ink);}
+  .note-card ul .note{color:var(--ink-dim);}
+
+  .state-tag{display:inline-block;font-size:10px;color:var(--ink-dim);border:1px solid var(--line-2);
+    border-radius:6px;padding:2px 7px;margin-bottom:8px;background:#ECECEC;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ===== ドキュメントヘッダ ===== -->
+  <div class="doc-head">
+    <h1>Lapsy ／ ログイン画面 — ワイヤーフレーム（パス1）</h1>
+    <p>
+      ローファイ・グレースケール（彩色なし）。構造は中忠実度、各ブロックに役割注釈・インタラクションコメントを併記。<br>
+      レイアウト＝センタリングカード型。エラーは各入力欄の下に個別表示。招待制のため新規登録導線は設けない。
+    </p>
+    <div class="tagrow">
+      <span class="tag">最大幅 1200px / 外周余白 24px</span>
+      <span class="tag">カード角丸 16px・入力/ボタン 12px</span>
+      <span class="tag">見出し Fredoka / 本文 Noto Sans JP</span>
+      <span class="tag">間隔 8·12·16·24·32</span>
+      <span class="tag">PC + モバイル 2バリエーション</span>
+    </div>
+  </div>
+
+  <!-- ===== 2バリエーション ===== -->
+  <div class="variants">
+
+    <!-- ── PC ── -->
+    <div class="variant">
+      <h2>PC ビュー <span class="vp-badge">≥ 1024px</span></h2>
+      <div class="viewport pc">
+        <div class="chrome-bar">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span class="chrome-label">ブラウザ — フォームのみ中央配置（背景は無地）</span>
+        </div>
+
+        <div class="login-card">
+          <!-- 1 ブランド -->
+          <div class="brand anchored">
+            <span class="mk">1</span>
+            <!-- グレースケール化したアイコン（パス1のため彩色なし） -->
+            <svg class="icon" viewBox="0 0 512 512" aria-label="Lapsy ロゴ（モノクロ仮）">
+              <rect width="512" height="512" rx="120" fill="#DADADA"/>
+              <circle cx="256" cy="256" r="116" fill="#FFFFFF"/>
+              <ellipse cx="216.5" cy="297.8" rx="34.8" ry="18.6" fill="#ECECEC"/>
+              <ellipse cx="295.4" cy="216.6" rx="23.2" ry="15.1" fill="#F2F2F2"/>
+              <path d="M366.2,134.9 L373.5,153.6 L392.2,160.9 L373.5,168.2 L366.2,186.9 L358.9,168.2 L340.2,160.9 L358.9,153.6 Z" fill="#BFBFBF"/>
+              <circle cx="142.3" cy="207.3" r="6.5" fill="#FFFFFF"/>
+              <circle cx="192.2" cy="135.4" r="4.5" fill="#FFFFFF"/>
+            </svg>
+            <span class="word">Lapsy</span>
+            <span class="sub">ラップで積み上げる、資格学習タイマー</span>
+          </div>
+
+          <!-- 2 メール -->
+          <div class="field anchored">
+            <span class="mk">2</span>
+            <label>メールアドレス</label>
+            <div class="input">you@example.com</div>
+            <div class="help-slot">エラー時はこの位置に個別メッセージを表示</div>
+          </div>
+
+          <!-- 3 パスワード -->
+          <div class="field anchored">
+            <span class="mk">3</span>
+            <label>パスワード</label>
+            <div class="input with-action">
+              <span>••••••••</span>
+              <span class="eye">👁 表示</span>
+            </div>
+            <div class="help-slot">右端＝表示/非表示トグル（既定は非表示）</div>
+          </div>
+
+          <!-- 4 保持 + 5 リセット -->
+          <div class="row-between anchored">
+            <span class="mk">4</span>
+            <span class="check"><span class="box"></span>ログイン状態を保持する</span>
+            <a class="link">パスワードをお忘れですか？</a>
+          </div>
+
+          <!-- 6 送信 -->
+          <div class="anchored">
+            <span class="mk">6</span>
+            <div class="btn">ログイン</div>
+          </div>
+
+          <!-- 7 フッター注記 -->
+          <div class="foot-note anchored">
+            <span class="mk">7</span>
+            ご利用は招待制です。<br>アカウントが必要な場合は管理者へご連絡ください。
+          </div>
+        </div>
+      </div>
+
+      <!-- 注釈レジェンド -->
+      <div class="legend">
+        <h3>ブロックの役割</h3>
+        <ul>
+          <li><span class="mk">1</span><span><b>ブランド／ロゴ</b><span class="note"> — アイコン＋ワードマーク「Lapsy」。1行のサービス説明。パス1はモノクロ仮、パス2で水色アイコンを適用。</span></span></li>
+          <li><span class="mk">2</span><span><b>メールアドレス入力</b><span class="note"> — type=email。直下に個別エラースロットを確保。</span></span></li>
+          <li><span class="mk">3</span><span><b>パスワード入力＋表示トグル</b><span class="note"> — 右端アイコンで表示／非表示を切替。既定は非表示。</span></span></li>
+          <li><span class="mk">4</span><span><b>ログイン状態を保持</b><span class="note"> — チェックボックス。保持期間は別途定義（§4 Should）。</span></span></li>
+          <li><span class="mk">5</span><span><b>パスワードリセット導線</b><span class="note"> — 「お忘れですか？」→ リセット要求画面へ遷移。</span></span></li>
+          <li><span class="mk">6</span><span><b>ログインボタン（主アクション）</b><span class="note"> — 押下で認証。処理中はローディング表示へ。</span></span></li>
+          <li><span class="mk">7</span><span><b>招待制の注記</b><span class="note"> — 新規登録リンクは置かず、問い合わせ先のみ案内。</span></span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ── モバイル ── -->
+    <div class="variant">
+      <h2>モバイル ビュー <span class="vp-badge">≤ 480px</span></h2>
+      <div class="viewport mobile">
+        <div class="chrome-bar">
+          <span class="dot"></span>
+          <span class="chrome-label">端末幅 — 1カラム / カードは横いっぱい</span>
+        </div>
+
+        <div class="login-card">
+          <div class="brand">
+            <svg class="icon" viewBox="0 0 512 512" aria-label="Lapsy ロゴ（モノクロ仮）">
+              <rect width="512" height="512" rx="120" fill="#DADADA"/>
+              <circle cx="256" cy="256" r="116" fill="#FFFFFF"/>
+              <ellipse cx="216.5" cy="297.8" rx="34.8" ry="18.6" fill="#ECECEC"/>
+              <ellipse cx="295.4" cy="216.6" rx="23.2" ry="15.1" fill="#F2F2F2"/>
+              <path d="M366.2,134.9 L373.5,153.6 L392.2,160.9 L373.5,168.2 L366.2,186.9 L358.9,168.2 L340.2,160.9 L358.9,153.6 Z" fill="#BFBFBF"/>
+              <circle cx="142.3" cy="207.3" r="6.5" fill="#FFFFFF"/>
+              <circle cx="192.2" cy="135.4" r="4.5" fill="#FFFFFF"/>
+            </svg>
+            <span class="word">Lapsy</span>
+            <span class="sub">ラップで積み上げる、資格学習タイマー</span>
+          </div>
+
+          <div class="field">
+            <label>メールアドレス</label>
+            <div class="input">you@example.com</div>
+          </div>
+
+          <div class="field">
+            <label>パスワード</label>
+            <div class="input with-action">
+              <span>••••••••</span>
+              <span class="eye">👁</span>
+            </div>
+          </div>
+
+          <!-- モバイルは縦積み（保持→リンク） -->
+          <div class="check" style="margin-bottom:var(--s4);">
+            <span class="box"></span>ログイン状態を保持する
+          </div>
+
+          <div class="btn" style="margin-bottom:var(--s4);">ログイン</div>
+
+          <div style="text-align:center;margin-bottom:var(--s2);">
+            <a class="link">パスワードをお忘れですか？</a>
+          </div>
+
+          <div class="foot-note">
+            ご利用は招待制です。<br>必要な場合は管理者へご連絡ください。
+          </div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <h3>モバイルでの差分</h3>
+        <ul>
+          <li><span class="mk">A</span><span><b>カード幅</b><span class="note"> — 横いっぱい（左右余白のみ）。要素は1カラムで縦積み。</span></span></li>
+          <li><span class="mk">B</span><span><b>保持チェックとリンク</b><span class="note"> — 横並びをやめ縦積みに。ボタン下にリセットリンクを中央配置。</span></span></li>
+          <li><span class="mk">C</span><span><b>表示トグル</b><span class="note"> — ラベル省略しアイコンのみ（タップ領域は確保）。</span></span></li>
+          <li><span class="mk">D</span><span><b>タップ領域</b><span class="note"> — 入力・ボタン高 44px 以上を維持。</span></span></li>
+        </ul>
+      </div>
+    </div>
+
+  </div><!-- /variants -->
+
+  <!-- ===== 状態 & インタラクション ===== -->
+  <div class="notes">
+    <h2>状態バリエーション & インタラクション注記</h2>
+    <div class="notes-grid">
+
+      <!-- エラー状態（フィールド個別） -->
+      <div class="note-card">
+        <span class="state-tag">状態 — 入力エラー（個別表示）</span>
+        <h4>各入力欄の直下に個別表示</h4>
+        <div class="field" style="margin-top:8px;">
+          <label>メールアドレス</label>
+          <div class="input error">you@example</div>
+          <div class="err-msg">メールアドレスの形式が正しくありません</div>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>パスワード</label>
+          <div class="input error with-action"><span>••</span><span class="eye">👁 表示</span></div>
+          <div class="err-msg">パスワードを入力してください</div>
+        </div>
+        <ul style="margin-top:12px;">
+          <li class="note">枠は点線＋濃いグレーで異常を表現（パス2で警告色を適用）。</li>
+        </ul>
+      </div>
+
+      <!-- 認証失敗（フォーム全体） -->
+      <div class="note-card">
+        <span class="state-tag">状態 — 認証失敗</span>
+        <h4>資格情報の誤りはフォーム上部にまとめて</h4>
+        <div class="form-error" style="margin-top:8px;">
+          メールアドレスまたはパスワードが正しくありません
+        </div>
+        <ul>
+          <li>どちらが誤りかは明示しない（アカウント存在の推測を防ぐ）。</li>
+          <li class="note">入力欄ごとの形式エラー（左）とは別レイヤー。形式OK・認証NG時はこちらを表示。</li>
+        </ul>
+      </div>
+
+      <!-- ローディング -->
+      <div class="note-card">
+        <span class="state-tag">状態 — 送信中</span>
+        <h4>ボタンのローディング</h4>
+        <div class="btn" style="margin-top:8px;opacity:.7;">ログイン中…</div>
+        <ul style="margin-top:12px;">
+          <li>多重送信防止のためボタンを無効化。</li>
+          <li class="note">入力欄も操作不可（ディム表示）。</li>
+        </ul>
+      </div>
+
+      <!-- 遷移・挙動 -->
+      <div class="note-card">
+        <span class="state-tag">挙動 — 画面遷移</span>
+        <h4>導線まとめ</h4>
+        <ul>
+          <li>成功 → ダッシュボードへ遷移。</li>
+          <li>「お忘れですか？」→ パスワードリセット要求画面。</li>
+          <li>未認証で保護ページ直アクセス → 401 → 本画面へ誘導。</li>
+          <li class="note">新規登録導線は無し（招待制 / §8）。</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

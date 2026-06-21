@@ -1,9 +1,35 @@
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
+import { LoginForm } from "./login-form";
 
-// ログインページ（LAP-002 §4-A）。メール+パスワードを server action で送信する。
-// 失敗時は ?error=1 を付けて再表示し、エラーメッセージを出す。
+// ログインページ（LAP-002 §4-A / ワイヤーフレーム docs/wireframes/lapsy-login-wireframe.html 反映）。
+// センタリングのカード型。メール+パスワードを server action で送信し、
+// 認証失敗はフォーム上部にまとめて表示（どちらが誤りかは明示しない＝アカウント存在の推測防止）。
+// 招待制のため新規登録導線は設けない。
+
+function BrandIcon() {
+  return (
+    <svg
+      width="56"
+      height="56"
+      viewBox="0 0 512 512"
+      role="img"
+      aria-label="Lapsy"
+    >
+      <rect width="512" height="512" rx="120" fill="#54C3F1" />
+      <circle cx="256" cy="256" r="116" fill="#FFFFFF" />
+      <ellipse cx="216.56" cy="297.76" rx="34.8" ry="18.56" fill="#DDEFFB" opacity="0.85" />
+      <ellipse cx="295.44" cy="216.56" rx="23.2" ry="15.08" fill="#EAF6FD" />
+      <path
+        d="M366.2,134.88 L373.48,153.6 L392.2,160.88 L373.48,168.16 L366.2,186.88 L358.92,168.16 L340.2,160.88 L358.92,153.6 Z"
+        fill="#FFC93C"
+      />
+      <circle cx="142.32" cy="207.28" r="6.5" fill="#FFFFFF" opacity="0.9" />
+      <circle cx="192.2" cy="135.36" r="4.5" fill="#FFFFFF" opacity="0.75" />
+    </svg>
+  );
+}
 
 export default async function LoginPage({
   searchParams,
@@ -33,55 +59,48 @@ export default async function LoginPage({
   }
 
   return (
-    <main className="mx-auto flex max-w-sm flex-col gap-6 py-16">
-      <h1 className="text-2xl font-bold tracking-tight">ログイン</h1>
+    <main className="flex min-h-[80vh] flex-col items-center justify-center">
+      <div className="w-full max-w-[380px] rounded-2xl border border-gray-300 bg-white p-8">
+        {/* ブランド */}
+        <div className="mb-8 flex flex-col items-center gap-3">
+          <BrandIcon />
+          <span className="font-[family-name:var(--font-fredoka)] text-[26px] font-semibold leading-none text-gray-700">
+            Lapsy
+          </span>
+          <span className="text-[11px] text-gray-500">
+            ラップで積み上げる、資格学習タイマー
+          </span>
+        </div>
 
-      {accepted ? (
-        <p
-          role="status"
-          className="rounded border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300"
-        >
-          登録が完了しました。設定したパスワードでログインしてください。
+        {/* 登録完了メッセージ（招待受諾後） */}
+        {accepted ? (
+          <p
+            role="status"
+            className="mb-6 rounded-xl border border-gray-300 bg-gray-50 px-3 py-2.5 text-xs text-gray-600"
+          >
+            登録が完了しました。設定したパスワードでログインしてください。
+          </p>
+        ) : null}
+
+        {/* 認証失敗（フォーム上部にまとめて表示） */}
+        {error ? (
+          <p
+            role="alert"
+            className="mb-6 flex items-start gap-2 rounded-xl border border-dashed border-gray-500 px-3 py-2.5 text-xs text-gray-600"
+          >
+            メールアドレスまたはパスワードが正しくありません。
+          </p>
+        ) : null}
+
+        <LoginForm action={authenticate} />
+
+        {/* 招待制の注記（新規登録導線は置かない） */}
+        <p className="mt-6 text-center text-[11px] leading-relaxed text-gray-500">
+          ご利用は招待制です。
+          <br />
+          アカウントが必要な場合は管理者へご連絡ください。
         </p>
-      ) : null}
-
-      {error ? (
-        <p
-          role="alert"
-          className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
-        >
-          メールアドレスまたはパスワードが正しくありません。
-        </p>
-      ) : null}
-
-      <form action={authenticate} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm">
-          メールアドレス
-          <input
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
-            className="rounded border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          パスワード
-          <input
-            name="password"
-            type="password"
-            required
-            autoComplete="current-password"
-            className="rounded border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-          />
-        </label>
-        <button
-          type="submit"
-          className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300"
-        >
-          ログイン
-        </button>
-      </form>
+      </div>
     </main>
   );
 }

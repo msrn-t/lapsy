@@ -255,4 +255,24 @@ describe("computeDeadlineCountdowns（JST 暦日差・期限超過・§3-5）", 
   it("空入力は空配列", () => {
     expect(computeDeadlineCountdowns([], now)).toEqual([]);
   });
+
+  // LAP-013: CountdownList の期限日ラベルは toJstDateKey(deadline) で算出される。
+  // ラベルと daysRemaining/isOverdue が同一純関数（同一 JST 暦日基準）を共有することで、
+  // UTC 夕方〜夜の deadline（再現値 16:00Z = JST 翌日）でも両者がズレないことを純関数レベルで担保する。
+  it("T-COUNTDOWN-LABEL-TZ(LAP-013): 16:00Z deadline のラベルと残り日数が同一 JST 暦日基準で整合", () => {
+    const deadline = new Date("2026-06-30T16:00:00.000Z"); // UTC 6-30 夜 = JST 7-01 01:00
+    // ラベル側: _charts.tsx が使うのと同一の toJstDateKey で JST 暦日へ変換 → UTC 当日(6-30)ではなく JST の 7-01。
+    expect(toJstDateKey(deadline)).toBe("2026-07-01");
+    // UTC の単純切り出し（旧バグ）なら 6-30 となりラベルがズレる。
+    expect(deadline.toISOString().slice(0, 10)).toBe("2026-06-30");
+
+    // 残り日数側: now=JST 6-30 12:00 基準で daysRemaining=1（JST 暦日差 7-01 − 6-30）。
+    const nowJst = new Date("2026-06-30T03:00:00.000Z"); // JST 6-30 12:00
+    const out = computeDeadlineCountdowns(
+      [{ id: "L13", title: "JST Edge", deadline }],
+      nowJst,
+    );
+    expect(out[0]).toMatchObject({ daysRemaining: 1, isOverdue: false });
+    // ラベル(JST 7-01)と残り日数(JST 暦日差=1)が同一 JST 基準で一致 → 表示の内部不整合なし。
+  });
 });

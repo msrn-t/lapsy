@@ -9,6 +9,7 @@ import {
   validateInvitePassword,
   normalizeEmail,
   isValidEmail,
+  summarizeInvitationRow,
 } from "./invitation";
 
 describe("generateInviteToken", () => {
@@ -148,4 +149,78 @@ describe("isValidEmail", () => {
       expect(isValidEmail(bad)).toBe(false);
     },
   );
+});
+
+describe("summarizeInvitationRow（招待履歴の表示整形・LAP-015 (d)）", () => {
+  const now = new Date("2026-06-22T00:00:00.000Z");
+
+  it("pending かつ期限内 → canResend=true / 「あとN時間」", () => {
+    const inv = {
+      status: "pending" as const,
+      expiresAt: new Date("2026-06-24T10:00:00.000Z"), // +58h
+    };
+    expect(summarizeInvitationRow(inv, now)).toEqual({
+      statusLabel: "pending",
+      expiryLabel: "あと58時間",
+      canResend: true,
+    });
+  });
+
+  it("残り 1 時間未満は ceil で「あと1時間」になり再送可", () => {
+    const inv = {
+      status: "pending" as const,
+      expiresAt: new Date("2026-06-22T00:30:00.000Z"), // +30min
+    };
+    const out = summarizeInvitationRow(inv, now);
+    expect(out.expiryLabel).toBe("あと1時間");
+    expect(out.canResend).toBe(true);
+  });
+
+  it("期限ちょうど（expiresAt == now）の pending は期限切れ扱い → 再送不可 / 「—」", () => {
+    const inv = {
+      status: "pending" as const,
+      expiresAt: new Date("2026-06-22T00:00:00.000Z"),
+    };
+    expect(summarizeInvitationRow(inv, now)).toEqual({
+      statusLabel: "pending",
+      expiryLabel: "—",
+      canResend: false,
+    });
+  });
+
+  it("期限切れ pending（expiresAt < now）→ 再送不可 / 「—」", () => {
+    const inv = {
+      status: "pending" as const,
+      expiresAt: new Date("2026-06-21T00:00:00.000Z"),
+    };
+    expect(summarizeInvitationRow(inv, now)).toEqual({
+      statusLabel: "pending",
+      expiryLabel: "—",
+      canResend: false,
+    });
+  });
+
+  it("accepted → 再送不可 / 「—」（期限内でも）", () => {
+    const inv = {
+      status: "accepted" as const,
+      expiresAt: new Date("2026-06-24T00:00:00.000Z"),
+    };
+    expect(summarizeInvitationRow(inv, now)).toEqual({
+      statusLabel: "accepted",
+      expiryLabel: "—",
+      canResend: false,
+    });
+  });
+
+  it("expired → 再送不可 / 「—」", () => {
+    const inv = {
+      status: "expired" as const,
+      expiresAt: new Date("2026-06-24T00:00:00.000Z"),
+    };
+    expect(summarizeInvitationRow(inv, now)).toEqual({
+      statusLabel: "expired",
+      expiryLabel: "—",
+      canResend: false,
+    });
+  });
 });

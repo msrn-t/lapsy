@@ -130,3 +130,15 @@ export function deriveSessionState(input: DeriveSessionInput): SessionState {
     expired: false,
   };
 }
+
+/**
+ * 現セグメントの進捗率（0..1）を SessionState から算出する純関数（LAP-015・WF 07 timer-ring / prog）。
+ * DB・props 追加なしで _timer.tsx のリング/進捗バー描画に使う（state からの算出のみ・§4-4）。
+ * - expired もしくは segmentTotalSec <= 0（確定待ち・空セグメント）→ 1（満杯）を返す。
+ * - それ以外: segmentElapsedSec / segmentTotalSec を [0,1] にクランプ。
+ */
+export function segmentProgressRatio(state: SessionState): number {
+  if (state.expired || state.segmentTotalSec <= 0) return 1;
+  const ratio = state.segmentElapsedSec / state.segmentTotalSec;
+  return Math.min(1, Math.max(0, ratio));
+}

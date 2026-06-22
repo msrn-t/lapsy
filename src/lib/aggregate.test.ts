@@ -7,6 +7,7 @@ import {
   movingAverage,
   joinTopicTotals,
   computeDeadlineCountdowns,
+  computeDashboardKpis,
   type StudyRecordLike,
 } from "./aggregate";
 
@@ -274,5 +275,60 @@ describe("computeDeadlineCountdowns（JST 暦日差・期限超過・§3-5）", 
     );
     expect(out[0]).toMatchObject({ daysRemaining: 1, isOverdue: false });
     // ラベル(JST 7-01)と残り日数(JST 暦日差=1)が同一 JST 基準で一致 → 表示の内部不整合なし。
+  });
+});
+
+describe("computeDashboardKpis（サマリ KPI 導出・LAP-015 (a)）", () => {
+  it("daily 末尾＝今日 / ma 末尾＝7日平均 / total・active はそのまま採る", () => {
+    const out = computeDashboardKpis({
+      totalSeconds: 460800, // 128h
+      daily: [
+        { dateKey: "2026-06-20", totalSeconds: 3600 },
+        { dateKey: "2026-06-21", totalSeconds: 7200 },
+        { dateKey: "2026-06-22", totalSeconds: 5400 }, // 今日（末尾）= 1.5h
+      ],
+      movingAverage: [
+        { dateKey: "2026-06-20", averageSeconds: 3600 },
+        { dateKey: "2026-06-21", averageSeconds: 5400 },
+        { dateKey: "2026-06-22", averageSeconds: 7560 }, // 末尾= 7日平均= 2.1h
+      ],
+      activeTopicCount: 3,
+    });
+    expect(out).toEqual({
+      totalSeconds: 460800,
+      todaySeconds: 5400,
+      sevenDayAvgSeconds: 7560,
+      activeTopicCount: 3,
+    });
+  });
+
+  it("空配列・0 入力では全て 0 を返す（防御）", () => {
+    const out = computeDashboardKpis({
+      totalSeconds: 0,
+      daily: [],
+      movingAverage: [],
+      activeTopicCount: 0,
+    });
+    expect(out).toEqual({
+      totalSeconds: 0,
+      todaySeconds: 0,
+      sevenDayAvgSeconds: 0,
+      activeTopicCount: 0,
+    });
+  });
+
+  it("負値はクランプして 0 にする（防御）", () => {
+    const out = computeDashboardKpis({
+      totalSeconds: -100,
+      daily: [{ dateKey: "2026-06-22", totalSeconds: -50 }],
+      movingAverage: [{ dateKey: "2026-06-22", averageSeconds: -10 }],
+      activeTopicCount: -1,
+    });
+    expect(out).toEqual({
+      totalSeconds: 0,
+      todaySeconds: 0,
+      sevenDayAvgSeconds: 0,
+      activeTopicCount: 0,
+    });
   });
 });

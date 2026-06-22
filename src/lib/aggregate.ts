@@ -170,6 +170,46 @@ export function joinTopicTotals(
     });
 }
 
+// ── ダッシュボード KPI（LAP-015 (a)・WF 04 KPI 4 枚）──
+// 総学習時間（全期間累計）/ 今日（daily 末尾日）/ 7 日平均（ma 末尾点）/ アクティブトピック数 を
+// 既存集計（fillDailySeries 済み daily・movingAverage 済み ma）＋ aggregate 由来の総学習時間から導出する。
+// DB 非依存（page.tsx が userId フィルタで取得した値を注入）・空入力は 0 を返す（防御）。
+
+export type DashboardKpis = {
+  totalSeconds: number; // 全期間累計（aggregate から注入）
+  todaySeconds: number; // daily 末尾日（= 今日 JST）の合計
+  sevenDayAvgSeconds: number; // ma 末尾点の averageSeconds
+  activeTopicCount: number; // アーカイブ外トピック数
+};
+
+/**
+ * ダッシュボードのサマリ KPI を算出する純関数（§3-4 / LAP-015 (a)）。
+ * - todaySeconds = daily の末尾要素（昇順前提なので末尾＝今日 JST）の totalSeconds。空なら 0。
+ * - sevenDayAvgSeconds = movingAverage の末尾点 averageSeconds。空なら 0。
+ * - totalSeconds / activeTopicCount は呼び出し側（aggregate / topic.findMany）の値をそのまま採る。
+ *   負値は 0 へクランプ（防御）。
+ */
+export function computeDashboardKpis(input: {
+  totalSeconds: number;
+  daily: ReadonlyArray<DailyTotal>;
+  movingAverage: ReadonlyArray<MovingAveragePoint>;
+  activeTopicCount: number;
+}): DashboardKpis {
+  const todaySeconds =
+    input.daily.length > 0 ? input.daily[input.daily.length - 1].totalSeconds : 0;
+  const sevenDayAvgSeconds =
+    input.movingAverage.length > 0
+      ? input.movingAverage[input.movingAverage.length - 1].averageSeconds
+      : 0;
+  const clamp = (n: number) => (n > 0 ? n : 0);
+  return {
+    totalSeconds: clamp(input.totalSeconds),
+    todaySeconds: clamp(todaySeconds),
+    sevenDayAvgSeconds: clamp(sevenDayAvgSeconds),
+    activeTopicCount: clamp(input.activeTopicCount),
+  };
+}
+
 export type DeadlineInput = { id: string; title: string; deadline: Date };
 export type DeadlineCountdown = {
   id: string;

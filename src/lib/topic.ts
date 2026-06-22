@@ -97,3 +97,27 @@ export function evaluateTopicDeletion(input: {
   // 3. 記録なし → 物理削除を許可。
   return { ok: true };
 }
+
+// --- アーカイブ／復元の mutation 生成（LAP-007 §3-4 / §9）。 ---
+// アーカイブ／復元は DB の UPDATE のみ（StudyRecord/StudySession は物理削除しない・§7.4）。
+// data 生成をここに純関数化し、不変条件 isArchived===true ⟺ archivedAt!=null を一点に集約する。
+
+export type ArchiveMutation = { isArchived: true; archivedAt: Date };
+export type RestoreMutation = { isArchived: false; archivedAt: null };
+
+/**
+ * アーカイブ時の更新 data を生成する純関数（§3-4 / §3-5）。
+ * archivedAt に現在時刻（引数 now）を設定する。now を引数で受け取り、
+ * テストで固定値を渡せるようにする（時刻非依存テスト）。
+ */
+export function computeArchiveMutation(now: Date): ArchiveMutation {
+  return { isArchived: true, archivedAt: now };
+}
+
+/**
+ * 復元時の更新 data を生成する純関数（§3-4 / §3-5）。
+ * archivedAt を null クリアする（状態を素直に表現・不変条件を保つ）。
+ */
+export function computeRestoreMutation(): RestoreMutation {
+  return { isArchived: false, archivedAt: null };
+}

@@ -66,16 +66,15 @@ export const PRIMARY_NAV: readonly NavItem[] = [
 ] as const;
 
 // 下段（サイドナビ nav-sep の下 / モバイルメニュードロワー）。
-// アカウントは LAP-017 で実ルートが作られるまで暫定非活性。
+// アカウントは LAP-017 で実ルート（/dashboard/account）が作られ有効化された。
 // ログアウトは form + server action（LogoutButton）で別途描画するため nav 配列には含めない。
 export const SECONDARY_NAV: readonly NavItem[] = [
   {
     key: "account",
     label: "アカウント",
-    // 暫定非活性。LAP-017 で disabled を外し href を実ルートへ差し替える。
-    href: "#",
+    // LAP-017 で実ルートへ差替（disabled 除去）。子ルートが無いため exact。
+    href: "/dashboard/account",
     matchMode: "exact",
-    disabled: true,
   },
 ] as const;
 
@@ -124,6 +123,7 @@ const TITLE_TABLE: ReadonlyArray<{ prefix: string; title: string }> = [
   { prefix: "/dashboard/sessions", title: "タイマー" },
   { prefix: "/dashboard/topics", title: "トピック" },
   { prefix: "/dashboard/presets", title: "プリセット" },
+  { prefix: "/dashboard/account", title: "アカウント設定" },
   { prefix: "/dashboard", title: "ダッシュボード" },
   { prefix: "/admin/invite", title: "招待" },
   { prefix: "/admin/users", title: "ユーザー管理" },

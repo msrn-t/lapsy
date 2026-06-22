@@ -32,17 +32,19 @@ export default async function EditPresetPage({
   const config = parsePresetConfig(preset.config);
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-6 py-12">
-      <h1 className="text-2xl font-bold tracking-tight">プリセットを編集</h1>
+    <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+      <h3 className="font-[family-name:var(--font-fredoka)] text-lg font-semibold">
+        プリセットを編集
+      </h3>
 
       <form
         action={updatePreset}
-        className="flex flex-col gap-3 rounded border border-gray-200 p-4 dark:border-gray-800"
+        className="flex flex-col gap-3 rounded-card border border-line bg-card p-6"
       >
         <input type="hidden" name="id" value={preset.id} />
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">
-            プリセット名<span className="text-red-600">*</span>
+            プリセット名<span className="text-ink-dim">*</span>
           </span>
           <input
             type="text"
@@ -50,7 +52,7 @@ export default async function EditPresetPage({
             required
             maxLength={200}
             defaultValue={preset.name}
-            className="rounded border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+            className="min-h-[44px] rounded-ctl border border-line-2 bg-fill px-3 text-sm placeholder:text-placeholder"
           />
         </label>
 
@@ -58,29 +60,29 @@ export default async function EditPresetPage({
           <legend className="text-sm font-medium">
             ラップ（作業/休憩を秒で入力・空欄の行は無視されます）
           </legend>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-ink-dim">
             作業時間は60秒以上、休憩時間は0秒以上。最低1ラップ・最大{MAX_LAPS}
             ラップ。
           </p>
           <LapRows initial={config} />
         </fieldset>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <button
             type="submit"
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900"
+            className="inline-flex min-h-[34px] items-center justify-center rounded-ctl bg-btn px-4 text-xs text-btn-ink"
           >
             更新
           </button>
           <Link
             href="/dashboard/presets"
-            className="rounded px-3 py-1.5 text-sm font-medium text-gray-500 hover:underline"
+            className="text-xs text-ink-dim underline underline-offset-2"
           >
             キャンセル
           </Link>
         </div>
       </form>
-    </main>
+    </div>
   );
 }
 

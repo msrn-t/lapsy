@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -33,67 +34,103 @@ export default async function AdminUsersPage({
   const { result } = await searchParams;
 
   const users = await prisma.user.findMany({
-    select: { id: true, email: true, isAdmin: true },
+    // (c・LAP-015) name / createdAt を追加（admin スコープ・requireAdminId 済）。
+    select: { id: true, name: true, email: true, isAdmin: true, createdAt: true },
     orderBy: { email: "asc" },
   });
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-6 py-12">
-      <h1 className="text-2xl font-bold tracking-tight">ユーザー管理</h1>
+    <div className="flex flex-col gap-6">
+      {/* WF .page-h（見出し + 招待リンク）。タイトルは shell トップバーが描画。 */}
+      <div className="flex flex-wrap items-center gap-3">
+        <h3 className="font-[family-name:var(--font-fredoka)] text-lg font-semibold">
+          ユーザー管理
+        </h3>
+        <span className="flex-1" />
+        <Link
+          href="/admin/invite"
+          className="text-xs text-ink underline underline-offset-2"
+        >
+          ＋ 招待を送信
+        </Link>
+      </div>
 
       {result ? <ResultBanner kind={result as ResultKind} /> : null}
 
-      <ul className="flex flex-col divide-y divide-gray-200 rounded border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-        {users.map((u) => {
-          const isSelf = u.id === actorId;
-          return (
-            <li
-              key={u.id}
-              className="flex items-center justify-between gap-4 px-4 py-3"
-            >
-              <span className="flex flex-col gap-0.5 text-sm">
-                <span className="font-medium">{u.email}</span>
-                <span
-                  className={
-                    u.isAdmin
-                      ? "text-xs text-green-700 dark:text-green-400"
-                      : "text-xs text-gray-500"
-                  }
-                >
-                  {u.isAdmin ? "管理者" : "一般ユーザー"}
-                  {isSelf ? "（あなた）" : ""}
-                </span>
-              </span>
+      {/* WF .tbl テーブル（名前 / メール / 管理者 / 登録日）。 */}
+      <div className="overflow-hidden rounded-card border border-line bg-card">
+        <table className="w-full border-collapse text-xs">
+          <thead>
+            <tr>
+              <th className="border-b border-line px-3 py-2.5 text-left text-[11px] font-medium text-ink-dim">
+                名前
+              </th>
+              <th className="border-b border-line px-3 py-2.5 text-left text-[11px] font-medium text-ink-dim">
+                メールアドレス
+              </th>
+              <th className="border-b border-line px-3 py-2.5 text-left text-[11px] font-medium text-ink-dim">
+                管理者
+              </th>
+              <th className="border-b border-line px-3 py-2.5 text-left text-[11px] font-medium text-ink-dim">
+                登録日
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u) => {
+              const isSelf = u.id === actorId;
+              return (
+                <tr key={u.id}>
+                  <td className="border-b border-line px-3 py-2.5 text-left text-ink">
+                    {u.name ?? "（未設定）"}
+                    {isSelf ? "（あなた）" : ""}
+                  </td>
+                  <td className="border-b border-line px-3 py-2.5 text-left text-ink-dim">
+                    {u.email}
+                  </td>
+                  <td className="border-b border-line px-3 py-2.5 text-left">
+                    <form action={toggleAdmin} className="flex items-center gap-2">
+                      <input type="hidden" name="targetId" value={u.id} />
+                      <input
+                        type="hidden"
+                        name="action"
+                        value={u.isAdmin ? "revoke" : "grant"}
+                      />
+                      {/* WF .switch 風トグル。実体は既存 toggleAdmin form（name 不変）。 */}
+                      <button
+                        type="submit"
+                        // 自分自身の剥奪は UI でも無効化（サーバ側ガードが正・§4）。
+                        disabled={u.isAdmin && isSelf}
+                        aria-pressed={u.isAdmin}
+                        title={u.isAdmin ? "管理者を剥奪" : "管理者を付与"}
+                        className={
+                          "relative inline-block h-[22px] w-[38px] rounded-full border border-line-2 transition-colors disabled:cursor-not-allowed disabled:opacity-45 " +
+                          (u.isAdmin ? "bg-line-strong" : "bg-[#D9D9D9]")
+                        }
+                      >
+                        <span
+                          className={
+                            "absolute top-0.5 h-4 w-4 rounded-full border border-line bg-white transition-all " +
+                            (u.isAdmin ? "left-[18px]" : "left-0.5")
+                          }
+                        />
+                      </button>
+                    </form>
+                  </td>
+                  <td className="border-b border-line px-3 py-2.5 text-left text-ink-dim">
+                    {u.createdAt.toISOString().slice(0, 10).replace(/-/g, "/")}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
-              <form action={toggleAdmin}>
-                <input type="hidden" name="targetId" value={u.id} />
-                <input
-                  type="hidden"
-                  name="action"
-                  value={u.isAdmin ? "revoke" : "grant"}
-                />
-                <button
-                  type="submit"
-                  // 自分自身の剥奪は UI でも無効化（サーバ側ガードが正・§4）。
-                  disabled={u.isAdmin && isSelf}
-                  className={
-                    u.isAdmin
-                      ? "rounded border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950"
-                      : "rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900"
-                  }
-                >
-                  {u.isAdmin ? "管理者を剥奪" : "管理者を付与"}
-                </button>
-              </form>
-            </li>
-          );
-        })}
-      </ul>
-
-      <p className="text-sm text-gray-500">
+      <p className="text-[11px] leading-6 text-ink-dim">
         ※ 剥奪すると対象ユーザーは強制ログアウトされ、再ログインが必要になります。自分自身の管理者権限は剥奪できません。システム上で最後の管理者となる剥奪も拒否されます。
       </p>
-    </main>
+    </div>
   );
 }
 
@@ -196,8 +233,8 @@ function ResultBanner({ kind }: { kind: ResultKind }) {
       role="alert"
       className={
         ok
-          ? "rounded border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300"
-          : "rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
+          ? "rounded-ctl border border-line bg-panel px-3 py-2.5 text-xs text-ink"
+          : "flex gap-2 rounded-ctl border border-dashed border-error px-3 py-2.5 text-xs text-error"
       }
     >
       {messages[kind]}

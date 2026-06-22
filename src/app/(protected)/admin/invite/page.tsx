@@ -9,15 +9,18 @@ import {
   generateInviteToken,
   isValidEmail,
   normalizeEmail,
+  summarizeInvitationRow,
 } from "@/lib/invitation";
 
-// 管理者専用 招待送信 UI（LAP-003 §3-F）。
+// 管理者専用 招待送信 UI + 招待履歴（LAP-003 §3-F / LAP-015 (d) WF 09）。
 // 認可は二層: (1) authorized で /admin 配下を保護（auth.config.ts）、
 // (2) server action / ページ冒頭で requireAdminId()（共通ヘルパ）で管理者を必須化する。
 // 招待リンクの base URL は AUTH_URL を流用する（§4 / .env.example）。
+// LAP-015: 招待履歴テーブルと再送導線（resendInvite）を追加。既存 invite フローは不変。
 
 type ResultKind =
   | "success"
+  | "resent" // 再送（LAP-015 (d)）。一様 ACK 方針で pending 以外でも返す。
   | "mail_failed"
   | "already_registered"
   | "duplicate_pending"
@@ -37,6 +40,20 @@ export default async function AdminInvitePage({
   await requireAdminId();
 
   const { result, email } = await searchParams;
+
+  // (d・LAP-015) 招待履歴。admin 限定ページ（招待管理は横断的に全招待を見るのが仕様）。
+  const now = new Date();
+  const invitations = await prisma.invitation.findMany({
+    select: {
+      id: true,
+      email: true,
+      status: true,
+      expiresAt: true,
+      createdAt: true,
+    },
+    orderBy: [{ createdAt: "desc" }],
+    take: 50,
+  });
 
   async function invite(formData: FormData) {
     "use server";
@@ -124,43 +141,174 @@ export default async function AdminInvitePage({
     back(sent.ok ? "success" : "mail_failed");
   }
 
+  // (d・LAP-015) 招待の再送（pending のみ）。既存 invite の token 発行・一様 ACK 方針と整合させる。
+  // 「再送 = 期限延長 + 新リンク」: 新トークン発行 + computeExpiry(now) で期限を再設定する
+  // （既存 invite の「期限切れ pending → expired 化して新規発行」と一貫）。
+  // 一様 ACK: 対象が pending でない/存在しない場合も resent を返し、招待の有無を漏らさない。
+  async function resendInvite(formData: FormData) {
+    "use server";
+
+    // 二層目の認可（server action 冒頭で必ずサーバ側判定・既存 invite と同方針）。
+    await requireAdminId();
+
+    const id = String(formData.get("id") ?? "");
+
+    const back = (kind: ResultKind, addr?: string) =>
+      redirect(
+        `/admin/invite?result=${kind}${addr ? `&email=${encodeURIComponent(addr)}` : ""}`,
+      );
+
+    // pending のみ対象（accepted/expired は再送しない）。無ければ一様に resent ACK（列挙防止）。
+    const target = await prisma.invitation.findFirst({
+      where: { id, status: "pending" },
+      select: { id: true, email: true, expiresAt: true },
+    });
+    if (!target) {
+      back("resent"); // 存在の有無を漏らさない一様応答。
+      return;
+    }
+
+    const sendNow = new Date();
+    const token = generateInviteToken();
+
+    // 新トークン + 期限再設定で当該レコードを更新（status は pending 維持）。
+    await prisma.invitation.update({
+      where: { id: target.id },
+      data: { token, expiresAt: computeExpiry(sendNow) },
+    });
+
+    // 送信は更新コミット後（既存 invite と同様トランザクション外・§3-B 5）。
+    const mailer = getMailer();
+    const sent = await mailer.sendInvitation({
+      to: target.email,
+      inviteUrl: buildInviteUrl(baseUrl(), token),
+    });
+
+    back(sent.ok ? "resent" : "mail_failed", target.email);
+  }
+
   return (
-    <main className="mx-auto flex max-w-lg flex-col gap-6 py-12">
-      <h1 className="text-2xl font-bold tracking-tight">ユーザーを招待</h1>
-
-      {result ? <ResultBanner kind={result as ResultKind} email={email} /> : null}
-
-      <form action={invite} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm">
-          招待先メールアドレス
-          <input
-            name="email"
-            type="email"
-            required
-            autoComplete="off"
-            defaultValue={email ?? ""}
-            className="rounded border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-          />
-        </label>
-        <button
-          type="submit"
-          className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300"
-        >
+    <div className="flex flex-col gap-7">
+      <div className="mx-auto flex w-full max-w-[520px] flex-col gap-4">
+        <h3 className="font-[family-name:var(--font-fredoka)] text-lg font-semibold">
           招待を送信
-        </button>
-      </form>
+        </h3>
 
-      <p className="text-sm text-gray-500">
-        ※ 招待リンクの有効期限は72時間です。期限切れ後は同じメールアドレスへ再招待できます。
-      </p>
-    </main>
+        {result ? (
+          <ResultBanner kind={result as ResultKind} email={email} />
+        ) : null}
+
+        <form
+          action={invite}
+          className="flex flex-col gap-3 rounded-card border border-line bg-card p-6"
+        >
+          <label className="flex flex-col gap-1 text-sm">
+            招待先メールアドレス
+            <div className="flex flex-wrap items-end gap-2">
+              <input
+                name="email"
+                type="email"
+                required
+                autoComplete="off"
+                defaultValue={email ?? ""}
+                className="min-h-[44px] flex-1 rounded-ctl border border-line-2 bg-fill px-3 text-sm placeholder:text-placeholder"
+              />
+              <button
+                type="submit"
+                className="inline-flex min-h-[34px] items-center justify-center rounded-ctl bg-btn px-4 text-xs text-btn-ink"
+              >
+                招待を送信
+              </button>
+            </div>
+          </label>
+          <p className="text-[11px] text-ink-dim">
+            ※ 招待リンクの有効期限は72時間です。期限切れ後は同じメールアドレスへ再招待できます。
+          </p>
+        </form>
+      </div>
+
+      {/* (d・LAP-015) 招待履歴テーブル（メール / 状態 / 有効期限 / 再送）。 */}
+      <section className="flex flex-col gap-2">
+        <p className="font-[family-name:var(--font-fredoka)] text-xs font-medium uppercase tracking-wide text-ink-dim">
+          招待履歴
+        </p>
+        {invitations.length === 0 ? (
+          <p className="rounded-card border border-dashed border-line-2 px-6 py-8 text-center text-xs leading-7 text-ink-dim">
+            まだ招待履歴がありません。
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-card border border-line bg-card">
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr>
+                  <th className="border-b border-line px-3 py-2.5 text-left text-[11px] font-medium text-ink-dim">
+                    メールアドレス
+                  </th>
+                  <th className="border-b border-line px-3 py-2.5 text-left text-[11px] font-medium text-ink-dim">
+                    状態
+                  </th>
+                  <th className="border-b border-line px-3 py-2.5 text-left text-[11px] font-medium text-ink-dim">
+                    有効期限
+                  </th>
+                  <th className="border-b border-line px-3 py-2.5 text-left text-[11px] font-medium text-ink-dim">
+                    再送
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {invitations.map((inv) => {
+                  const view = summarizeInvitationRow(inv, now);
+                  return (
+                    <tr key={inv.id}>
+                      <td className="border-b border-line px-3 py-2.5 text-left text-ink">
+                        {inv.email}
+                      </td>
+                      <td className="border-b border-line px-3 py-2.5 text-left">
+                        <span
+                          className={
+                            view.statusLabel === "accepted"
+                              ? "inline-block rounded-full border border-line-strong bg-[#ECECEC] px-2 py-0.5 text-[10px] text-ink"
+                              : "inline-block rounded-full border border-line-2 bg-[#ECECEC] px-2 py-0.5 text-[10px] text-ink-dim"
+                          }
+                        >
+                          {view.statusLabel}
+                        </span>
+                      </td>
+                      <td className="border-b border-line px-3 py-2.5 text-left text-ink-dim">
+                        {view.expiryLabel}
+                      </td>
+                      <td className="border-b border-line px-3 py-2.5 text-left">
+                        {view.canResend ? (
+                          <form action={resendInvite}>
+                            <input type="hidden" name="id" value={inv.id} />
+                            <button
+                              type="submit"
+                              className="text-xs text-ink underline underline-offset-2"
+                            >
+                              再送
+                            </button>
+                          </form>
+                        ) : (
+                          <span className="text-ink-dim">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
   );
 }
 
 function ResultBanner({ kind, email }: { kind: ResultKind; email?: string }) {
-  const ok = kind === "success";
+  const ok = kind === "success" || kind === "resent";
   const messages: Record<ResultKind, string> = {
     success: `${email ?? ""} に招待を送信しました。`,
+    resent: `${email ? `${email} に` : ""}招待を再送しました（新しいリンク・有効期限を再設定）。`,
     mail_failed: `招待は作成しましたが、${email ?? ""} へのメール送信に失敗しました。再送は期限切れ後に行えます。`,
     already_registered: `${email ?? ""} は既に登録済みのため招待できません。`,
     duplicate_pending: `${email ?? ""} には有効な招待が既に存在します（期限切れ後に再招待できます）。`,
@@ -173,8 +321,8 @@ function ResultBanner({ kind, email }: { kind: ResultKind; email?: string }) {
       role="alert"
       className={
         ok
-          ? "rounded border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300"
-          : "rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
+          ? "rounded-ctl border border-line bg-panel px-3 py-2.5 text-xs text-ink"
+          : "flex gap-2 rounded-ctl border border-dashed border-error px-3 py-2.5 text-xs text-error"
       }
     >
       {messages[kind]}

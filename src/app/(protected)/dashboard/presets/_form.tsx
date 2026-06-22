@@ -15,27 +15,27 @@ export function LapRows({ initial }: { initial?: LapConfig[] }) {
     <div className="flex flex-col gap-1.5">
       {rows.map((lap, i) => (
         <div key={i} className="flex items-center gap-2 text-sm">
-          <span className="w-10 text-xs text-gray-400">#{i + 1}</span>
+          <span className="w-10 text-xs text-ink-dim">#{i + 1}</span>
           <label className="flex items-center gap-1">
-            <span className="text-xs text-gray-500">作業(秒)</span>
+            <span className="text-xs text-ink-dim">作業(秒)</span>
             <input
               type="number"
               name={`lap-${i}-workSec`}
               min={0}
               step={1}
               defaultValue={lap ? String(lap.workSec) : ""}
-              className="w-24 rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-900"
+              className="w-24 rounded-ctl border border-line-2 bg-fill px-2 py-1 text-sm"
             />
           </label>
           <label className="flex items-center gap-1">
-            <span className="text-xs text-gray-500">休憩(秒)</span>
+            <span className="text-xs text-ink-dim">休憩(秒)</span>
             <input
               type="number"
               name={`lap-${i}-breakSec`}
               min={0}
               step={1}
               defaultValue={lap ? String(lap.breakSec) : ""}
-              className="w-24 rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-900"
+              className="w-24 rounded-ctl border border-line-2 bg-fill px-2 py-1 text-sm"
             />
           </label>
         </div>

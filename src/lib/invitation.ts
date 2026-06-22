@@ -74,6 +74,41 @@ export function validateInvitePassword(
   return { ok: true };
 }
 
+// ── 招待履歴の表示整形（LAP-015 (d)・WF 09 招待履歴テーブル）──
+// 招待レコードの状態・有効期限・再送可否を表示用に整形する純関数。DB 非依存・now 注入でテスト可能。
+
+export type InvitationRowView = {
+  statusLabel: "pending" | "accepted" | "expired";
+  expiryLabel: string; // "あと58時間" / "—"
+  canResend: boolean; // pending かつ期限内のみ
+};
+
+/**
+ * 招待履歴の 1 行を表示用ビューへ整形する純関数（§4-Admin-invite / LAP-015 (d)）。
+ * - statusLabel: status をそのまま採る（pending/accepted/expired）。
+ * - expiryLabel: pending かつ期限内 → 「あと N 時間」（N = ceil((expiresAt-now)/1h)・最小 1）。
+ *                それ以外（accepted/expired/期限切れ pending）→ "—"。
+ * - canResend: 再送可否は evaluateInvitation の valid 判定に揃える（pending かつ期限内のみ true）。
+ *   これにより「期限切れ pending」は accepted/expired と同じく再送導線を出さない。
+ */
+export function summarizeInvitationRow(
+  inv: { status: "pending" | "accepted" | "expired"; expiresAt: Date },
+  now: Date,
+): InvitationRowView {
+  const valid = evaluateInvitation(inv, now).valid;
+  let expiryLabel = "—";
+  if (valid) {
+    const remainingMs = inv.expiresAt.getTime() - now.getTime();
+    const hours = Math.max(1, Math.ceil(remainingMs / (60 * 60 * 1000)));
+    expiryLabel = `あと${hours}時間`;
+  }
+  return {
+    statusLabel: inv.status,
+    expiryLabel,
+    canResend: valid,
+  };
+}
+
 /** メールアドレスを正規化する（trim + 小文字化）。判定の入口で必ず通す。 */
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();

@@ -70,6 +70,13 @@ function summarizeConfig(config: LapConfig[]): string {
     .join("、");
 }
 
+// 合計作業時間（分）を「約N分」表記にする（WF カードの合計時間注記・表示のみ）。
+function totalWorkLabel(config: LapConfig[]): string {
+  const totalSec = config.reduce((acc, c) => acc + c.workSec, 0);
+  const min = Math.round(totalSec / 60);
+  return `合計 約${min}分（作業のみ）`;
+}
+
 export default async function PresetsPage({
   searchParams,
 }: {
@@ -86,19 +93,34 @@ export default async function PresetsPage({
   });
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-6 py-12">
-      <h1 className="text-2xl font-bold tracking-tight">ポモドーロ プリセット</h1>
+    <div className="flex flex-col gap-6">
+      {/* WF .page-h（見出し + 新規ボタン）。タイトルは shell トップバーが描画。 */}
+      <div className="flex flex-wrap items-center gap-3">
+        <h3 className="font-[family-name:var(--font-fredoka)] text-lg font-semibold">
+          プリセット
+        </h3>
+        <span className="flex-1" />
+        <a
+          href="#new-preset"
+          className="inline-flex min-h-[34px] items-center justify-center rounded-ctl bg-btn px-4 text-xs text-btn-ink"
+        >
+          ＋ 新規プリセット
+        </a>
+      </div>
 
       {result && isResultKind(result) ? <ResultBanner kind={result} /> : null}
 
       <form
+        id="new-preset"
         action={createPreset}
-        className="flex flex-col gap-3 rounded border border-gray-200 p-4 dark:border-gray-800"
+        className="flex flex-col gap-3 rounded-card border border-line bg-card p-6"
       >
-        <h2 className="text-sm font-semibold">新しいプリセットを作成</h2>
+        <p className="font-[family-name:var(--font-fredoka)] text-xs font-medium uppercase tracking-wide text-ink-dim">
+          新しいプリセットを作成
+        </p>
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">
-            プリセット名<span className="text-red-600">*</span>
+            プリセット名<span className="text-ink-dim">*</span>
           </span>
           <input
             type="text"
@@ -106,7 +128,7 @@ export default async function PresetsPage({
             required
             maxLength={200}
             placeholder="例: 標準ポモドーロ"
-            className="rounded border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+            className="min-h-[44px] rounded-ctl border border-line-2 bg-fill px-3 text-sm placeholder:text-placeholder"
           />
         </label>
 
@@ -114,7 +136,7 @@ export default async function PresetsPage({
           <legend className="text-sm font-medium">
             ラップ（作業/休憩を秒で入力・空欄の行は無視されます）
           </legend>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-ink-dim">
             作業時間は60秒以上、休憩時間は0秒以上。最低1ラップ・最大{MAX_LAPS}
             ラップ。
           </p>
@@ -123,39 +145,39 @@ export default async function PresetsPage({
 
         <button
           type="submit"
-          className="self-start rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900"
+          className="inline-flex min-h-[34px] items-center justify-center self-start rounded-ctl bg-btn px-4 text-xs text-btn-ink"
         >
           作成
         </button>
       </form>
 
       {presets.length === 0 ? (
-        <p className="text-sm text-gray-500">
+        <p className="rounded-card border border-dashed border-line-2 px-6 py-8 text-center text-xs leading-7 text-ink-dim">
           まだプリセットがありません。上のフォームから作成してください。
         </p>
       ) : (
-        <ul className="flex flex-col divide-y divide-gray-200 rounded border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {presets.map((p) => {
             const config = parsePresetConfig(p.config);
             return (
               <li
                 key={p.id}
-                className="flex items-center justify-between gap-4 px-4 py-3"
+                className="flex flex-col gap-2 rounded-card border border-line bg-card p-6"
               >
-                <span className="flex flex-col gap-0.5 text-sm">
-                  <span className="font-medium">{p.name}</span>
-                  <span className="text-xs text-gray-500">
-                    {config.length}ラップ
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {summarizeConfig(config)}
-                  </span>
+                <span className="font-[family-name:var(--font-fredoka)] font-semibold">
+                  {p.name}
+                </span>
+                <span className="text-[11px] text-ink-dim">
+                  {config.length}ラップ ・ {totalWorkLabel(config)}
+                </span>
+                <span className="text-[11px] text-ink-dim">
+                  {summarizeConfig(config)}
                 </span>
 
-                <span className="flex items-center gap-2">
+                <span className="mt-1 flex flex-wrap items-center gap-2">
                   <Link
                     href={`/dashboard/presets/${p.id}/edit`}
-                    className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900"
+                    className="inline-flex min-h-[34px] items-center justify-center rounded-ctl border border-line-2 px-4 text-xs text-ink"
                   >
                     編集
                   </Link>
@@ -163,7 +185,7 @@ export default async function PresetsPage({
                     <input type="hidden" name="id" value={p.id} />
                     <button
                       type="submit"
-                      className="rounded border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950"
+                      className="inline-flex min-h-[34px] items-center justify-center rounded-ctl border border-dashed border-error px-4 text-xs text-error"
                     >
                       削除
                     </button>
@@ -174,7 +196,7 @@ export default async function PresetsPage({
           })}
         </ul>
       )}
-    </main>
+    </div>
   );
 }
 
@@ -252,8 +274,8 @@ function ResultBanner({ kind }: { kind: ResultKind }) {
       role="alert"
       className={
         ok
-          ? "rounded border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300"
-          : "rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
+          ? "rounded-ctl border border-line bg-panel px-3 py-2.5 text-xs text-ink"
+          : "flex gap-2 rounded-ctl border border-dashed border-error px-3 py-2.5 text-xs text-error"
       }
     >
       {messages[kind]}

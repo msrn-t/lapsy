@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   deriveSessionState,
+  segmentProgressRatio,
   MAX_RUN_SECONDS,
   type DeriveSessionInput,
+  type SessionState,
 } from "./session";
 import type { LapConfig } from "./preset";
 
@@ -165,5 +167,64 @@ describe("deriveSessionState（サーバー時刻基準の状態導出・§7.3 /
 
   it("T15: totalSec が Σ(work+break) と一致する（複数ラップ累計）", () => {
     expect(at(0).totalSec).toBe(1500 + 300 + 3000 + 600); // 5400
+  });
+});
+
+describe("segmentProgressRatio（現セグメント進捗率・LAP-015 timer-ring/prog）", () => {
+  const base: SessionState = {
+    phase: "work",
+    lapIndex: 0,
+    totalSec: 5400,
+    deadlineSec: 5400,
+    elapsedSec: 0,
+    segmentElapsedSec: 0,
+    segmentTotalSec: 1500,
+    expired: false,
+  };
+
+  it("経過 0 → 0", () => {
+    expect(segmentProgressRatio({ ...base, segmentElapsedSec: 0 })).toBe(0);
+  });
+
+  it("半分経過 → 0.5", () => {
+    expect(
+      segmentProgressRatio({ ...base, segmentElapsedSec: 750, segmentTotalSec: 1500 }),
+    ).toBe(0.5);
+  });
+
+  it("expired は 1（満杯）", () => {
+    expect(
+      segmentProgressRatio({
+        ...base,
+        phase: "expired",
+        expired: true,
+        segmentElapsedSec: 0,
+        segmentTotalSec: 0,
+      }),
+    ).toBe(1);
+  });
+
+  it("segmentTotalSec=0（空セグメント）は 1（0 除算回避）", () => {
+    expect(
+      segmentProgressRatio({ ...base, segmentElapsedSec: 0, segmentTotalSec: 0 }),
+    ).toBe(1);
+  });
+
+  it("超過分は 1 にクランプ", () => {
+    expect(
+      segmentProgressRatio({ ...base, segmentElapsedSec: 2000, segmentTotalSec: 1500 }),
+    ).toBe(1);
+  });
+
+  it("segmentTotalSec が負値（防御）は 1（0 除算/負割回避）", () => {
+    expect(
+      segmentProgressRatio({ ...base, segmentElapsedSec: 0, segmentTotalSec: -100 }),
+    ).toBe(1);
+  });
+
+  it("segmentElapsedSec が負値（防御・時計巻き戻り想定）は 0 にクランプ", () => {
+    expect(
+      segmentProgressRatio({ ...base, segmentElapsedSec: -50, segmentTotalSec: 1500 }),
+    ).toBe(0);
   });
 });

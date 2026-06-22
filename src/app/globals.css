@@ -1,13 +1,45 @@
 @import "tailwindcss";
 
-/* ワイヤーフレーム（docs/wireframes）はライトのグレースケール専用デザイン。
-   ダークUIは未対応のため prefers-color-scheme: dark の自動切り替えは行わない。 */
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* 共通デザイントークン（LAP-014 §4 / 移植元: docs/wireframes/04-dashboard.html :root）。
+   ワイヤーフレームはライトのグレースケール専用デザイン。ダーク UI は未対応のため
+   prefers-color-scheme: dark の自動切り替えは行わない。
+   Tailwind v4 の @theme に定義することで、ユーティリティ（bg-page・text-ink・rounded-card 等）と
+   CSS 変数（var(--color-ink)）の双方から参照できる。後続 LAP-015/016/017 の共通基盤。 */
+@theme {
+  /* colors（WF グレースケール・彩色なし） */
+  --color-page: #e9e9e9;
+  --color-panel: #f3f3f3;
+  --color-card: #ffffff;
+  --color-fill: #f4f4f4;
+  --color-line: #cfcfcf;
+  --color-line-2: #b6b6b6;
+  --color-line-strong: #9a9a9a;
+  --color-ink: #454545;
+  --color-ink-dim: #7e7e7e;
+  --color-placeholder: #b2b2b2;
+  --color-btn: #6f6f6f;
+  --color-btn-ink: #ffffff;
+  --color-marker: #5c5c5c;
+  --color-error: #7a7a7a;
+  /* アクティブなナビ項目の背景（WF .nav-item.active / .tab.active の #E2E2E2） */
+  --color-nav-active: #e2e2e2;
+
+  /* radius（WF --r-card / --r-ctl） */
+  --radius-card: 16px;
+  --radius-ctl: 12px;
+
+  /* spacing（WF s1..s5: 8/12/16/24/32px）。固有名で参照可能にする
+     （Tailwind 既定スケールとは別に、WF の余白語彙をそのまま使えるようにする）。 */
+  --spacing-s1: 8px;
+  --spacing-s2: 12px;
+  --spacing-s3: 16px;
+  --spacing-s4: 24px;
+  --spacing-s5: 32px;
 }
 
+/* 既定の地色はグレースケールの --color-page、文字色は --color-ink。
+   公開ページ（/・/login 等）は自前で white/gray-* を使うため、この地色の上でも後退しない。 */
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--color-page);
+  color: var(--color-ink);
 }

@@ -1,0 +1,413 @@
+import { Prisma } from "@prisma/client";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { requireUserId } from "@/lib/auth-helpers";
+import { prisma } from "@/lib/prisma";
+import {
+  validatePresetInput,
+  parsePresetConfig,
+  MAX_LAPS,
+  type LapConfig,
+  type PresetValidationReason,
+} from "@/lib/preset";
+import { deriveSessionState } from "@/lib/session";
+import { LapRows, collectLaps } from "../presets/_form";
+import { SessionTimer } from "./_timer";
+
+// ポモドーロ実行（ラン）の開始・進行中表示・中断（LAP-009 §3 / §4）。
+// 認証・データ分離は二層: (1) auth.config の authorized で /dashboard 配下をログイン必須に保護、
+// (2) ページ・各 server action 冒頭で requireUserId()（未認証は /login へ）。
+// 全クエリは requireUserId() 由来 userId でフィルタする（§7.5）。
+// 開始は StudySession を running で作成し presetSnapshot（LapConfig[] の値コピー）を凍結する（§3-1）。
+// 1ユーザー1アクティブは partial unique index studysession_user_running_unique（P2002）を最終権威に拒否（§3-4）。
+// 進行状態の正はサーバー（deriveSessionState({ startedAt(DB), now: new Date() })）。再 open は再導出で復元（§3-5）。
+// 中断は status=aborted + endedAt=サーバー時刻 の UPDATE まで。StudyRecord の materialize は LAP-010（§3-3）。
+
+type ResultKind =
+  | "started"
+  | "aborted"
+  | "already_running"
+  | "topic_not_found"
+  | "preset_not_found"
+  | "empty_config"
+  | "lap_work_too_short"
+  | "lap_work_too_long"
+  | "break_negative"
+  | "break_too_long"
+  | "too_many_laps"
+  | "invalid_number"
+  | "not_found";
+
+const SUCCESS_KINDS: ReadonlySet<ResultKind> = new Set<ResultKind>([
+  "started",
+  "aborted",
+]);
+
+const ERROR_KINDS: ReadonlyArray<ResultKind> = [
+  "already_running",
+  "topic_not_found",
+  "preset_not_found",
+  "empty_config",
+  "lap_work_too_short",
+  "lap_work_too_long",
+  "break_negative",
+  "break_too_long",
+  "too_many_laps",
+  "invalid_number",
+  "not_found",
+];
+
+function isResultKind(value: string): value is ResultKind {
+  return (
+    SUCCESS_KINDS.has(value as ResultKind) ||
+    ERROR_KINDS.includes(value as ResultKind)
+  );
+}
+
+// validatePresetInput の reason をセッション開始の ResultKind へ写像する（§4・手入力経路）。
+// 開始フォームには name 入力が無くダミー "_" を渡すため name_required/name_too_long は構造上発生しない。
+// 万一発生した場合は empty_config（ラップ未設定相当）へフォールバックして型を網羅する。
+function lapValidationToResult(reason: PresetValidationReason): ResultKind {
+  switch (reason) {
+    case "name_required":
+    case "name_too_long":
+      return "empty_config"; // 発生し得ない経路。フォールバック。
+    case "empty_config":
+    case "too_many_laps":
+    case "lap_work_too_short":
+    case "lap_work_too_long":
+    case "break_negative":
+    case "break_too_long":
+    case "invalid_number":
+      return reason;
+  }
+}
+
+// config を「全ラップの合計作業/休憩」の要約文字列にする（開始フォームのプリセット選択肢用）。
+function summarizeConfig(config: LapConfig[]): string {
+  if (config.length === 0) return "（設定なし）";
+  return config
+    .map((c, i) => `${i + 1}: 作業${c.workSec}秒/休憩${c.breakSec}秒`)
+    .join("、");
+}
+
+export default async function SessionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ result?: string }>;
+}) {
+  // ページ表示も認証必須（未認証は /login へ）。
+  const userId = await requireUserId();
+  const { result } = await searchParams;
+
+  // 進行中ランを取得（データ分離・§3-5）。@@index([userId,status]) が効く。
+  const running = await prisma.studySession.findFirst({
+    where: { userId, status: "running" },
+    select: { id: true, topicId: true, presetSnapshot: true, startedAt: true },
+  });
+
+  return (
+    <main className="mx-auto flex max-w-2xl flex-col gap-6 py-12">
+      <h1 className="text-2xl font-bold tracking-tight">ポモドーロ実行</h1>
+
+      {result && isResultKind(result) ? <ResultBanner kind={result} /> : null}
+
+      {running ? (
+        <RunningView running={running} />
+      ) : (
+        <StartFormView userId={userId} />
+      )}
+    </main>
+  );
+}
+
+// 進行中ランの表示（§3-5）。JSONB は信頼せず parsePresetConfig で narrowing し、
+// サーバー時刻基準で初期状態を導出して client component（SessionTimer）へ渡す。
+function RunningView({
+  running,
+}: {
+  running: {
+    id: string;
+    topicId: string;
+    presetSnapshot: Prisma.JsonValue;
+    startedAt: Date;
+  };
+}) {
+  const snapshot = parsePresetConfig(running.presetSnapshot); // JSONB を信頼しない（§3-1）
+  const state = deriveSessionState({
+    snapshot,
+    startedAt: running.startedAt,
+    now: new Date(), // サーバー現在時刻が正（§7.3）
+  });
+
+  return (
+    <div className="flex flex-col gap-4">
+      <SessionTimer
+        initial={state}
+        startedAt={running.startedAt.toISOString()}
+        snapshot={snapshot}
+      />
+
+      <form action={abortSession} className="self-center">
+        <input type="hidden" name="id" value={running.id} />
+        <button
+          type="submit"
+          className="rounded border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950"
+        >
+          中断する
+        </button>
+      </form>
+
+      <p className="text-center text-xs text-gray-400">
+        ※ 進行状態はサーバー時刻を正とします。ブラウザを閉じて再度開いても進行は復元されます。
+      </p>
+    </div>
+  );
+}
+
+// 開始フォーム（§3-1）。トピック選択 + プリセット選択（presetId）or 手入力ラップ（LapRows 再利用）。
+async function StartFormView({ userId }: { userId: string }) {
+  const [topics, presets] = await Promise.all([
+    prisma.topic.findMany({
+      where: { userId, isArchived: false }, // データ分離 + アーカイブ除外
+      select: { id: true, title: true },
+      orderBy: [{ createdAt: "desc" }],
+    }),
+    prisma.preset.findMany({
+      where: { userId },
+      select: { id: true, name: true, config: true },
+      orderBy: [{ createdAt: "desc" }],
+    }),
+  ]);
+
+  if (topics.length === 0) {
+    return (
+      <p className="text-sm text-gray-500">
+        対象の学習トピックがありません。先に
+        <a
+          href="/dashboard/topics"
+          className="mx-1 underline hover:text-gray-700 dark:hover:text-gray-300"
+        >
+          トピック
+        </a>
+        を作成してください。
+      </p>
+    );
+  }
+
+  return (
+    <form
+      action={startSession}
+      className="flex flex-col gap-4 rounded border border-gray-200 p-4 dark:border-gray-800"
+    >
+      <h2 className="text-sm font-semibold">新しいポモドーロを開始</h2>
+
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="font-medium">
+          対象トピック<span className="text-red-600">*</span>
+        </span>
+        <select
+          name="topicId"
+          required
+          className="rounded border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+        >
+          {topics.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.title}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="font-medium">プリセット（任意）</span>
+        <select
+          name="presetId"
+          className="rounded border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+        >
+          <option value="">（プリセットを使わず下のラップを手入力）</option>
+          {presets.map((p) => {
+            const config = parsePresetConfig(p.config);
+            return (
+              <option key={p.id} value={p.id}>
+                {p.name}（{summarizeConfig(config)}）
+              </option>
+            );
+          })}
+        </select>
+        <span className="text-xs text-gray-400">
+          プリセットを選ぶと下のラップ手入力は無視されます。
+        </span>
+      </label>
+
+      <fieldset className="flex flex-col gap-2">
+        <legend className="text-sm font-medium">
+          ラップを手入力（プリセット未選択時・作業/休憩を秒で入力）
+        </legend>
+        <p className="text-xs text-gray-500">
+          作業時間は60秒以上、休憩時間は0秒以上。最低1ラップ・最大{MAX_LAPS}
+          ラップ。
+        </p>
+        <LapRows />
+      </fieldset>
+
+      <button
+        type="submit"
+        className="self-start rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900"
+      >
+        開始
+      </button>
+    </form>
+  );
+}
+
+// 開始（server action・§3-1 / §3-4）。認証はセッション由来 userId で行い、クライアント入力を信頼しない。
+async function startSession(formData: FormData) {
+  "use server";
+
+  const userId = await requireUserId();
+
+  const back = (kind: ResultKind) =>
+    redirect(`/dashboard/sessions?result=${kind}`);
+
+  const topicId = String(formData.get("topicId") ?? "");
+  const presetId = String(formData.get("presetId") ?? "");
+
+  // トピック検証（データ分離・無ければ DB に触れず終了）。
+  const topic = await prisma.topic.findFirst({
+    where: { id: topicId, userId },
+    select: { id: true },
+  });
+  if (!topic) {
+    back("topic_not_found");
+    return;
+  }
+
+  // snapshot の確定（§3-1）。最終的に正規化済み LapConfig[] に統一する。
+  let snapshot: LapConfig[];
+  if (presetId.length > 0) {
+    // (a) 保存済みプリセット選択。
+    const preset = await prisma.preset.findFirst({
+      where: { id: presetId, userId },
+      select: { config: true },
+    });
+    if (!preset) {
+      back("preset_not_found");
+      return;
+    }
+    const config = parsePresetConfig(preset.config); // JSONB を信頼しない（§3-1）
+    if (config.length === 0) {
+      back("empty_config");
+      return;
+    }
+    snapshot = config;
+  } else {
+    // (b) 手入力ラップ（LAP-008 の純関数・入力 UI を共有・重複実装しない）。
+    const validation = validatePresetInput({
+      name: "_", // 開始フォームに名前は無いためダミー（config のみ使う）。
+      laps: collectLaps(formData),
+    });
+    if (!validation.ok) {
+      // 開始フォームに name 入力は無くダミー "_" を渡すため name_required/name_too_long は
+      // 構造上発生しない。型網羅のため lapValidationToResult で ResultKind へ写像する（§4・ResultKind 一覧）。
+      back(lapValidationToResult(validation.reason));
+      return;
+    }
+    snapshot = validation.value.config;
+  }
+
+  // running 二重作成のプリチェック（UX 早期リターン・§3-4）。
+  const existing = await prisma.studySession.findFirst({
+    where: { userId, status: "running" },
+    select: { id: true },
+  });
+  if (existing) {
+    back("already_running");
+    return;
+  }
+
+  // 作成（DB 最終権威で TOCTOU 対策・§3-4）。startedAt はサーバー時刻（§7.3）。
+  try {
+    await prisma.studySession.create({
+      data: {
+        userId,
+        topicId,
+        presetSnapshot: snapshot, // 値コピー（FK/参照は持たせない・§3-1）
+        startedAt: new Date(),
+        status: "running",
+      },
+    });
+  } catch (e) {
+    // プリチェックと create の間に並行生成された running は partial unique index で P2002。
+    // DB を最終権威に already_running へフォールバックする（§3-4）。
+    if (
+      e instanceof Prisma.PrismaClientKnownRequestError &&
+      e.code === "P2002"
+    ) {
+      back("already_running");
+      return;
+    }
+    throw e;
+  }
+
+  revalidatePath("/dashboard/sessions");
+  back("started");
+}
+
+// 中断（server action・§3-3）。status:"running" のみ対象に status=aborted + endedAt をサーバー時刻で UPDATE。
+// 中断時刻はクライアントから受け取らない（改ざん対策）。StudyRecord の生成は LAP-010（§3-3）。
+async function abortSession(formData: FormData) {
+  "use server";
+
+  const userId = await requireUserId();
+  const id = String(formData.get("id") ?? "");
+
+  const back = (kind: ResultKind) =>
+    redirect(`/dashboard/sessions?result=${kind}`);
+
+  const { count } = await prisma.studySession.updateMany({
+    where: { id, userId, status: "running" }, // データ分離 + running のみ
+    data: { status: "aborted", endedAt: new Date() }, // サーバー受信時刻を中断点に（§3-3）
+  });
+  if (count === 0) {
+    back("not_found"); // 不在・他人・既に確定済みを一様化。
+    return;
+  }
+
+  revalidatePath("/dashboard/sessions");
+  back("aborted");
+}
+
+function ResultBanner({ kind }: { kind: ResultKind }) {
+  const ok = SUCCESS_KINDS.has(kind);
+  const messages: Record<ResultKind, string> = {
+    started: "ポモドーロを開始しました。",
+    aborted: "ポモドーロを中断しました。",
+    already_running:
+      "進行中のランがあります。中断または完了してから新しく開始してください。",
+    topic_not_found: "対象のトピックが見つかりませんでした。",
+    preset_not_found: "対象のプリセットが見つかりませんでした。",
+    empty_config: "ラップを最低1つ設定してください。",
+    lap_work_too_short: "ラップの作業時間は60秒以上に設定してください。",
+    lap_work_too_long: "設定時間が長すぎます。",
+    break_negative: "休憩時間に負の値は設定できません。",
+    break_too_long: "設定時間が長すぎます。",
+    too_many_laps: "ラップ数が多すぎます（上限 20）。",
+    invalid_number: "作業時間・休憩時間は整数（秒）で入力してください。",
+    not_found:
+      "中断対象のランが見つかりませんでした（既に終了している可能性があります）。",
+  };
+
+  return (
+    <p
+      role="alert"
+      className={
+        ok
+          ? "rounded border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300"
+          : "rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
+      }
+    >
+      {messages[kind]}
+    </p>
+  );
+}

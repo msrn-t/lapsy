@@ -15,7 +15,7 @@ const inputBase =
   "min-h-[44px] w-full rounded-ctl border border-line-2 bg-fill px-3 text-sm text-ink placeholder:text-placeholder focus:border-line-strong focus:outline-none";
 
 const eyeBtn =
-  "absolute right-2 top-1/2 -translate-y-1/2 rounded-lg border border-line bg-[#EFEFEF] px-2 py-1 text-[11px] text-ink-dim transition hover:opacity-90";
+  "absolute right-2 top-1/2 -translate-y-1/2 rounded-lg border border-line bg-fill px-2 py-1 text-[11px] text-ink-dim transition hover:opacity-90";
 
 const METER_WIDTH: Record<ReturnType<typeof scorePasswordStrength>, string> = {
   weak: "w-1/3",
@@ -85,11 +85,11 @@ function Fields() {
           </button>
         </div>
         <div
-          className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#E2E2E2]"
+          className="mt-2 h-1.5 overflow-hidden rounded-full bg-fill"
           role="presentation"
         >
           <span
-            className={`block h-full bg-line-strong transition-[width] ${pw.length > 0 ? METER_WIDTH[strength] : "w-0"}`}
+            className={`block h-full bg-progress transition-[width] ${pw.length > 0 ? METER_WIDTH[strength] : "w-0"}`}
           />
         </div>
         <p className="mt-1.5 text-[11px] text-ink-dim">

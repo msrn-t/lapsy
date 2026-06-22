@@ -54,7 +54,7 @@ export default async function LoginPage({
         {accepted ? (
           <p
             role="status"
-            className="mb-6 rounded-ctl border border-dashed border-line-2 bg-[#EDEDED] px-3 py-2.5 text-xs leading-relaxed text-ink"
+            className="mb-6 rounded-ctl border border-dashed border-line-2 bg-fill px-3 py-2.5 text-xs leading-relaxed text-ink"
           >
             登録が完了しました。設定したパスワードでログインしてください。
           </p>
@@ -64,7 +64,7 @@ export default async function LoginPage({
         {reset ? (
           <p
             role="status"
-            className="mb-6 rounded-ctl border border-dashed border-line-2 bg-[#EDEDED] px-3 py-2.5 text-xs leading-relaxed text-ink"
+            className="mb-6 rounded-ctl border border-dashed border-line-2 bg-fill px-3 py-2.5 text-xs leading-relaxed text-ink"
           >
             パスワードを再設定しました。新しいパスワードでログインしてください。
           </p>

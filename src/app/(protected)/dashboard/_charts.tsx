@@ -2,16 +2,19 @@
 // グラフライブラリは導入せず SVG/CSS（Tailwind）で自作する。
 // データ整形は純関数（@/lib/aggregate）で完結済み。ここは props を受けて描画するのみ
 // （DB/集計ロジックは持ち込まない）。
-// LAP-015: WF 04 のグレースケール単色トークン（bg-line-strong / WF heatmap グレー段階）へ整合し、
-// 有彩色（blue-*/green-*）と dark:* を撤去した。ロジック（段階判定・座標計算）は不変。
+// LAP-015: WF 04 のグレースケール単色トークンへ整合し、有彩色と dark:* を撤去した。
+// LAP-018: グレースケール仮配色をブランドカラー（意味トークン）へ移行した。進捗塗りは bg-progress、
+// ヒートマップは var(--color-heat-0..4)、カウントダウンは緊急度 4 段（var(--color-due-*) + ラベル併記）。
+// ロジック（段階判定・閾値・座標計算・段数）は不変。
 
 import type {
   DailyTotal,
   MovingAveragePoint,
   TopicTotal,
   DeadlineCountdown,
+  DeadlineUrgency,
 } from "@/lib/aggregate";
-import { toJstDateKey } from "@/lib/aggregate";
+import { toJstDateKey, classifyDeadlineUrgency } from "@/lib/aggregate";
 
 // 秒を「H時間M分」/「M分」へ整形（表示用）。
 function formatHm(totalSeconds: number): string {
@@ -59,9 +62,9 @@ export function TopicTotalsChart({ totals }: { totals: TopicTotal[] }) {
         return (
           <li key={t.topicId} className="flex items-center gap-3 text-xs">
             <span className="w-28 shrink-0 truncate text-ink">{t.title}</span>
-            <div className="h-3.5 flex-1 overflow-hidden rounded-full bg-[#E6E6E6]">
+            <div className="h-3.5 flex-1 overflow-hidden rounded-full bg-fill">
               <div
-                className="h-full bg-line-strong"
+                className="h-full bg-progress"
                 style={{ width: `${pct}%` }}
               />
             </div>
@@ -78,13 +81,15 @@ export function TopicTotalsChart({ totals }: { totals: TopicTotal[] }) {
 // ── 日別ヒートマップ（週グリッド・GitHub 風・§3-6 / WF .heat グレー段階）──
 // daily は JST 暦日昇順・連続（fillDailySeries 済み）を前提。
 // 列=週、行=曜日（0=日 .. 6=土）。各セルの濃淡を totalSeconds の段階で塗り分ける。
-// WF の段階色（#E6E6E6 / #D2D2D2 / #B4B4B4 / #979797 / #7C7C7C）へ整合。
+// LAP-018: 段の色をブランドのヒートマップトークン（--color-heat-0..4・少→多）へ整合。
+// bg は意味トークン参照（inline style background / conic 等で文字列利用するため var() 文字列）。
+// 段数(5)・時間閾値（max=学習量のデータ意味）は不変。
 const HEAT_STEPS: { max: number; bg: string; label: string }[] = [
-  { max: 0, bg: "#E6E6E6", label: "なし" },
-  { max: 30 * 60, bg: "#D2D2D2", label: "〜30分" },
-  { max: 60 * 60, bg: "#B4B4B4", label: "〜1時間" },
-  { max: 120 * 60, bg: "#979797", label: "〜2時間" },
-  { max: Infinity, bg: "#7C7C7C", label: "2時間以上" },
+  { max: 0, bg: "var(--color-heat-0)", label: "なし" },
+  { max: 30 * 60, bg: "var(--color-heat-1)", label: "〜30分" },
+  { max: 60 * 60, bg: "var(--color-heat-2)", label: "〜1時間" },
+  { max: 120 * 60, bg: "var(--color-heat-3)", label: "〜2時間" },
+  { max: Infinity, bg: "var(--color-heat-4)", label: "2時間以上" },
 ];
 
 function heatBg(totalSeconds: number): string {
@@ -142,7 +147,7 @@ export function HeatmapChart({ daily }: { daily: DailyTotal[] }) {
                   return (
                     <span
                       key={di}
-                      className="h-3.5 w-3.5 rounded-sm"
+                      className="h-3.5 w-3.5 rounded-sm border border-line"
                       style={{ background: heatBg(cell.totalSeconds) }}
                       title={`${cell.dateKey}: ${formatHm(cell.totalSeconds)}`}
                     />
@@ -159,7 +164,7 @@ export function HeatmapChart({ daily }: { daily: DailyTotal[] }) {
         {HEAT_STEPS.map((s) => (
           <span
             key={s.label}
-            className="h-3 w-3 rounded-sm"
+            className="h-3 w-3 rounded-sm border border-line"
             style={{ background: s.bg }}
             title={s.label}
           />
@@ -216,7 +221,7 @@ export function MovingAverageChart({ points }: { points: MovingAveragePoint[] })
         <polyline
           points={polyline}
           fill="none"
-          stroke="var(--color-line-strong)"
+          stroke="var(--color-progress)"
           strokeWidth={2}
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -238,7 +243,30 @@ export function MovingAverageChart({ points }: { points: MovingAveragePoint[] })
   );
 }
 
-// ── 期限カウントダウン（行リスト・§3-5 / WF .dl-row）──
+// ── 期限カウントダウン（行リスト・§3-5 / WF .dl-row / LAP-018 緊急度 4 段）──
+// 緊急度ごとの色トークン（--color-due-*）とラベル（U3: 色のみに依存しない・テキスト併記）。
+// バッジは破線（形）でも状態を示し、色なしでもラベル＋数値（D-n/+n）で判別できる。
+const URGENCY_LABEL: Record<DeadlineUrgency, string> = {
+  safe: "余裕",
+  near: "接近",
+  urgent: "緊急",
+  over: "超過",
+};
+// バッジ/日数の文字色クラス（Tailwind v4 が --color-due-* から自動生成）。
+const URGENCY_TEXT: Record<DeadlineUrgency, string> = {
+  safe: "text-due-safe",
+  near: "text-due-near",
+  urgent: "text-due-urgent",
+  over: "text-due-over",
+};
+// バッジ枠色クラス。
+const URGENCY_BORDER: Record<DeadlineUrgency, string> = {
+  safe: "border-due-safe",
+  near: "border-due-near",
+  urgent: "border-due-urgent",
+  over: "border-due-over",
+};
+
 export function CountdownList({ items }: { items: DeadlineCountdown[] }) {
   if (items.length === 0) {
     return (
@@ -252,6 +280,7 @@ export function CountdownList({ items }: { items: DeadlineCountdown[] }) {
     <ul className="flex flex-col">
       {items.map((it) => {
         const deadlineKey = toJstDateKey(it.deadline);
+        const urgency = classifyDeadlineUrgency(it.daysRemaining);
         // WF .dl-days は D-14 / +3 表記（残り日数 / 超過日数）。
         const daysLabel = it.isOverdue
           ? `+${Math.abs(it.daysRemaining)}`
@@ -264,20 +293,16 @@ export function CountdownList({ items }: { items: DeadlineCountdown[] }) {
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="flex items-center gap-2 truncate text-ink">
                 {it.title}
-                {it.isOverdue ? (
-                  <span className="inline-block rounded-full border border-dashed border-error px-2 py-0.5 text-[10px] text-error">
-                    期限超過
-                  </span>
-                ) : null}
+                <span
+                  className={`inline-block rounded-full border border-dashed px-2 py-0.5 text-[10px] ${URGENCY_BORDER[urgency]} ${URGENCY_TEXT[urgency]}`}
+                >
+                  {URGENCY_LABEL[urgency]}
+                </span>
               </span>
               <span className="text-[11px] text-ink-dim">期限: {deadlineKey}</span>
             </div>
             <span
-              className={
-                it.isOverdue
-                  ? "font-[family-name:var(--font-fredoka)] text-base font-semibold text-error"
-                  : "font-[family-name:var(--font-fredoka)] text-base font-semibold text-ink"
-              }
+              className={`font-[family-name:var(--font-fredoka)] text-base font-semibold ${URGENCY_TEXT[urgency]}`}
             >
               {daysLabel}
             </span>

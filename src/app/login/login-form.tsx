@@ -71,7 +71,7 @@ function Fields() {
             onClick={() => setShow((v) => !v)}
             aria-pressed={show}
             aria-label={show ? "パスワードを隠す" : "パスワードを表示"}
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg border border-line bg-[#EFEFEF] px-2 py-1 text-[11px] text-ink-dim transition hover:opacity-90"
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg border border-line bg-fill px-2 py-1 text-[11px] text-ink-dim transition hover:opacity-90"
           >
             {show ? "隠す" : "表示"}
           </button>

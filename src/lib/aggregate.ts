@@ -249,3 +249,24 @@ export function computeDeadlineCountdowns(
       return a.title < b.title ? -1 : a.title > b.title ? 1 : 0;
     });
 }
+
+/** 期限カウントダウンの緊急度区分（4 段・LAP-018 U2）。 */
+export type DeadlineUrgency = "safe" | "near" | "urgent" | "over";
+
+/**
+ * 期限までの JST 暦日差から緊急度を 4 区分に分類する純関数（LAP-018 U2）。
+ * 入力は computeDeadlineCountdowns 由来の daysRemaining（暦日差・今日=0/明日=1/昨日=-1）。
+ * 閾値の包含関係（境界の帰属を厳密に固定）:
+ *   - over   : daysRemaining < 0           （= 超過・isOverdue と同義）
+ *   - urgent : 0 <= daysRemaining <= 3      （当日・3日以内）
+ *   - near   : 4 <= daysRemaining <= 14     （4〜14日）
+ *   - safe   : daysRemaining >= 15          （15日以上）
+ * パレット定義の「緊急≤3日 / 接近≤14日 / 余裕≥15日 / 超過<0」と一致。
+ * 境界例: -1→over, 0→urgent, 3→urgent, 4→near, 14→near, 15→safe。
+ */
+export function classifyDeadlineUrgency(daysRemaining: number): DeadlineUrgency {
+  if (daysRemaining < 0) return "over";
+  if (daysRemaining <= 3) return "urgent";
+  if (daysRemaining <= 14) return "near";
+  return "safe";
+}

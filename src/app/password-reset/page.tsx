@@ -105,7 +105,7 @@ export default async function PasswordResetRequestPage({
         {sent ? (
           <p
             role="status"
-            className="mb-6 rounded-ctl border border-dashed border-line-2 bg-[#EDEDED] px-3 py-2.5 text-xs leading-relaxed text-ink"
+            className="mb-6 rounded-ctl border border-dashed border-line-2 bg-fill px-3 py-2.5 text-xs leading-relaxed text-ink"
           >
             {RESET_REQUEST_ACK_MESSAGE}
           </p>

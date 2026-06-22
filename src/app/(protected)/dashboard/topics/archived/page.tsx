@@ -115,7 +115,7 @@ export default async function ArchivedTopicsPage({
                   <span className="text-[11px] text-ink-dim">{t.description}</span>
                 ) : null}
                 <div className="flex flex-wrap items-center gap-2 text-[10px] text-ink-dim">
-                  <span className="inline-block rounded-full border border-line-2 bg-[#ECECEC] px-2 py-0.5">
+                  <span className="inline-block rounded-full border border-line-2 bg-fill px-2 py-0.5">
                     アーカイブ済み
                   </span>
                   <span>アーカイブ日: {formatArchivedAt(t.archivedAt)}</span>

@@ -267,8 +267,8 @@ export default async function AdminInvitePage({
                         <span
                           className={
                             view.statusLabel === "accepted"
-                              ? "inline-block rounded-full border border-line-strong bg-[#ECECEC] px-2 py-0.5 text-[10px] text-ink"
-                              : "inline-block rounded-full border border-line-2 bg-[#ECECEC] px-2 py-0.5 text-[10px] text-ink-dim"
+                              ? "inline-block rounded-full border border-line-strong bg-fill px-2 py-0.5 text-[10px] text-ink"
+                              : "inline-block rounded-full border border-line-2 bg-fill px-2 py-0.5 text-[10px] text-ink-dim"
                           }
                         >
                           {view.statusLabel}

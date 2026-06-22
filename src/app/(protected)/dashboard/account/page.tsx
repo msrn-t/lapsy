@@ -239,7 +239,7 @@ function ResultBanner({ kind }: { kind: ResultKind }) {
       role="alert"
       className={
         ok
-          ? "w-full max-w-[480px] rounded-ctl border border-dashed border-line-2 bg-[#EDEDED] px-3 py-2.5 text-xs leading-relaxed text-ink"
+          ? "w-full max-w-[480px] rounded-ctl border border-dashed border-line-2 bg-fill px-3 py-2.5 text-xs leading-relaxed text-ink"
           : "w-full max-w-[480px] flex items-start gap-2 rounded-ctl border border-dashed border-error px-3 py-2.5 text-xs text-error"
       }
     >

@@ -7,6 +7,7 @@ import {
   movingAverage,
   joinTopicTotals,
   computeDeadlineCountdowns,
+  classifyDeadlineUrgency,
   computeDashboardKpis,
   type StudyRecordLike,
 } from "./aggregate";
@@ -275,6 +276,45 @@ describe("computeDeadlineCountdowns（JST 暦日差・期限超過・§3-5）", 
     );
     expect(out[0]).toMatchObject({ daysRemaining: 1, isOverdue: false });
     // ラベル(JST 7-01)と残り日数(JST 暦日差=1)が同一 JST 基準で一致 → 表示の内部不整合なし。
+  });
+});
+
+describe("classifyDeadlineUrgency（緊急度 4 段分類・LAP-018 U2）", () => {
+  it("T-URGENCY-OVER: daysRemaining < 0 は over（境界 -1 / 大幅超過 -30）", () => {
+    expect(classifyDeadlineUrgency(-1)).toBe("over");
+    expect(classifyDeadlineUrgency(-30)).toBe("over");
+  });
+
+  it("T-URGENCY-URGENT: 0..3 は urgent（境界 0 と 3）", () => {
+    expect(classifyDeadlineUrgency(0)).toBe("urgent");
+    expect(classifyDeadlineUrgency(3)).toBe("urgent");
+  });
+
+  it("T-URGENCY-NEAR: 4..14 は near（境界 4 と 14）", () => {
+    expect(classifyDeadlineUrgency(4)).toBe("near");
+    expect(classifyDeadlineUrgency(14)).toBe("near");
+  });
+
+  it("T-URGENCY-SAFE: >=15 は safe（境界 15 / 遠い 100）", () => {
+    expect(classifyDeadlineUrgency(15)).toBe("safe");
+    expect(classifyDeadlineUrgency(100)).toBe("safe");
+  });
+
+  it("T-URGENCY-INTEGRATION: computeDeadlineCountdowns の daysRemaining を分類すると 4 段が出る", () => {
+    const now = new Date("2026-06-22T03:00:00.000Z"); // JST 6-22 12:00
+    const out = computeDeadlineCountdowns(
+      [
+        { id: "O", title: "Over", deadline: new Date("2026-06-21T01:00:00.000Z") }, // -1
+        { id: "U", title: "Urgent", deadline: new Date("2026-06-24T01:00:00.000Z") }, // +2
+        { id: "N", title: "Near", deadline: new Date("2026-07-02T01:00:00.000Z") }, // +10
+        { id: "S", title: "Safe", deadline: new Date("2026-07-20T01:00:00.000Z") }, // +28
+      ],
+      now,
+    );
+    const byId = Object.fromEntries(
+      out.map((d) => [d.id, classifyDeadlineUrgency(d.daysRemaining)]),
+    );
+    expect(byId).toEqual({ O: "over", U: "urgent", N: "near", S: "safe" });
   });
 });
 

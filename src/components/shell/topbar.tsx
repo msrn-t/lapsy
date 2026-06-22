@@ -26,7 +26,7 @@ export function Topbar({ email }: { email: string }) {
         </span>
         <span
           aria-hidden="true"
-          className="h-[26px] w-[26px] flex-none rounded-full border border-line bg-[#DDD]"
+          className="h-[26px] w-[26px] flex-none rounded-full border border-line bg-nav-active"
         />
       </span>
     </header>

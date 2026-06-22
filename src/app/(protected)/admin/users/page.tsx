@@ -105,7 +105,7 @@ export default async function AdminUsersPage({
                         title={u.isAdmin ? "管理者を剥奪" : "管理者を付与"}
                         className={
                           "relative inline-block h-[22px] w-[38px] rounded-full border border-line-2 transition-colors disabled:cursor-not-allowed disabled:opacity-45 " +
-                          (u.isAdmin ? "bg-line-strong" : "bg-[#D9D9D9]")
+                          (u.isAdmin ? "bg-progress" : "bg-line-2")
                         }
                       >
                         <span

@@ -114,7 +114,7 @@ export function SessionTimer({
       <div
         className="mx-auto mb-4 flex h-[180px] w-[180px] items-center justify-center rounded-full"
         style={{
-          background: `conic-gradient(var(--color-line-strong) ${ratio * 360}deg, #E2E2E2 0)`,
+          background: `conic-gradient(var(--color-progress) ${ratio * 360}deg, var(--color-fill) 0)`,
         }}
       >
         <div className="flex h-[150px] w-[150px] items-center justify-center rounded-full bg-card">
@@ -130,9 +130,9 @@ export function SessionTimer({
       </div>
 
       {/* 進捗バー（現セグメントの進捗率）。 */}
-      <div className="my-3 h-2 overflow-hidden rounded bg-[#E6E6E6]">
+      <div className="my-3 h-2 overflow-hidden rounded bg-fill">
         <i
-          className="block h-full bg-line-strong"
+          className="block h-full bg-progress"
           style={{ width: `${ratio * 100}%` }}
         />
       </div>

@@ -1,28 +1,102 @@
 @import "tailwindcss";
 
-/* 共通デザイントークン（LAP-014 §4 / 移植元: docs/wireframes/04-dashboard.html :root）。
-   ワイヤーフレームはライトのグレースケール専用デザイン。ダーク UI は未対応のため
-   prefers-color-scheme: dark の自動切り替えは行わない。
+/* 共通デザイントークン（LAP-014 §4 起点 / LAP-018 でブランドカラーへ移行）。
+   ワイヤーフレームはあえてグレースケールの仮デザインだった（仮）が、用意済みブランドパレット
+   （docs/wireframes/lapsy_brand_color_palette.html・スカイブルー #54C3F1 / サンイエロー #FFC93C 軸）
+   へ移行した（LAP-018）。ダーク UI は未対応のため prefers-color-scheme: dark の自動切り替えは行わない。
+
+   2 層構成（LAP-018 §3）:
+     ① ブランドパレット原色 --brand-*（パレット HTML と 1:1 対応）。差し替えはこのブロックの値変更だけで完結。
+     ② 既存の意味トークン --color-*（名前は不変）が ① を var(--brand-*) で参照する。各ページは無改修で新配色になる。
    Tailwind v4 の @theme に定義することで、ユーティリティ（bg-page・text-ink・rounded-card 等）と
-   CSS 変数（var(--color-ink)）の双方から参照できる。後続 LAP-015/016/017 の共通基盤。 */
+   CSS 変数（var(--color-ink)）の双方から参照できる。 */
 @theme {
-  /* colors（WF グレースケール・彩色なし） */
-  --color-page: #e9e9e9;
-  --color-panel: #f3f3f3;
-  --color-card: #ffffff;
-  --color-fill: #f4f4f4;
-  --color-line: #cfcfcf;
-  --color-line-2: #b6b6b6;
-  --color-line-strong: #9a9a9a;
-  --color-ink: #454545;
-  --color-ink-dim: #7e7e7e;
-  --color-placeholder: #b2b2b2;
-  --color-btn: #6f6f6f;
-  --color-btn-ink: #ffffff;
-  --color-marker: #5c5c5c;
-  --color-error: #7a7a7a;
-  /* アクティブなナビ項目の背景（WF .nav-item.active / .tab.active の #E2E2E2） */
-  --color-nav-active: #e2e2e2;
+  /* ① ブランドパレット原色（移植元: docs/wireframes/lapsy_brand_color_palette.html）。
+     パレット差し替えはこのブロックの値変更だけで完結する。 */
+  --brand-sky: #54c3f1; /* コアブランド: スカイブルー（= primary-400） */
+  --brand-sun: #ffc93c; /* コアブランド: サンイエロー（= yellow-400） */
+  --brand-snow: #ffffff; /* スノーホワイト（= surface） */
+
+  /* プライマリ（スカイブルー）スケール */
+  --brand-primary-50: #eaf6fd;
+  --brand-primary-100: #ddeffb;
+  --brand-primary-200: #b6e2f7;
+  --brand-primary-300: #8ad3f4;
+  --brand-primary-400: #54c3f1; /* base */
+  --brand-primary-500: #2baee8;
+  --brand-primary-600: #1b95cc;
+  --brand-primary-700: #14739f;
+
+  /* アクセント（サンイエロー / コーラル） */
+  --brand-yellow-100: #fff1c9;
+  --brand-yellow-300: #ffe08a;
+  --brand-yellow-400: #ffc93c;
+  --brand-yellow-500: #f5b11a;
+  --brand-coral-300: #ffb3a3;
+  --brand-coral-400: #ff8366;
+  --brand-coral-500: #f0604a;
+
+  /* ニュートラル（サーフェス & テキスト） */
+  --brand-app-bg: #f4f9fc;
+  --brand-surface: #ffffff;
+  --brand-border: #dce7ef;
+  --brand-text-muted: #93a1ac;
+  --brand-text-secondary: #5b6b78;
+  --brand-text-primary: #213240;
+
+  /* セマンティック ステート */
+  --brand-success: #2fb877;
+  --brand-warning: #ffb020;
+  --brand-error: #ef4b49;
+  --brand-info: #54c3f1; /* = primary-400 */
+
+  /* ヒートマップ強度（学習量 少→多） */
+  --brand-heat-0: #edf3f7;
+  --brand-heat-1: #c5e6f8;
+  --brand-heat-2: #8ad3f4;
+  --brand-heat-3: #54c3f1;
+  --brand-heat-4: #1b95cc;
+
+  /* カウントダウン緊急度 */
+  --brand-due-safe: #2fb877; /* 余裕 ≥15日 */
+  --brand-due-near: #ffc93c; /* 接近 ≤14日 */
+  --brand-due-urgent: #ff8366; /* 緊急 ≤3日 */
+  --brand-due-over: #ef4b49; /* 超過 <0 */
+
+  /* ② 意味トークン（既存名は不変・値を var(--brand-*) へ・LAP-018 §3.3） */
+  --color-page: var(--brand-app-bg);
+  --color-panel: var(--brand-surface);
+  --color-card: var(--brand-surface);
+  --color-fill: var(--brand-primary-50);
+  --color-line: var(--brand-border);
+  --color-line-2: var(--brand-primary-200);
+  --color-line-strong: var(--brand-primary-600); /* 強枠線のみ（進捗塗りは --color-progress へ分離・§3.2） */
+  --color-ink: var(--brand-text-primary);
+  --color-ink-dim: var(--brand-text-secondary);
+  --color-placeholder: var(--brand-text-muted);
+  --color-btn: var(--brand-primary-700); /* ボタン背景。白文字とのコントラスト ≈4.7:1・WCAG AA 適合（Q1 確定値） */
+  --color-btn-ink: var(--brand-surface);
+  --color-error: var(--brand-error);
+  /* アクティブなナビ項目/タブの背景（Primary100） */
+  --color-nav-active: var(--brand-primary-100);
+  /* --color-marker は削除（src 参照ゼロ・LAP-018） */
+
+  /* ② 新設意味トークン（LAP-018 §3.5・すべて ① を参照） */
+  --color-progress: var(--brand-primary-500); /* 進捗塗り（バー/リング/メーター/折れ線）・admin トグル ON */
+  --color-success: var(--brand-success);
+  --color-warning: var(--brand-warning);
+  --color-info: var(--brand-info);
+  --color-heat-0: var(--brand-heat-0);
+  --color-heat-1: var(--brand-heat-1);
+  --color-heat-2: var(--brand-heat-2);
+  --color-heat-3: var(--brand-heat-3);
+  --color-heat-4: var(--brand-heat-4);
+  --color-due-safe: var(--brand-due-safe);
+  --color-due-near: var(--brand-due-near);
+  --color-due-urgent: var(--brand-due-urgent);
+  --color-due-over: var(--brand-due-over);
+  --color-accent: var(--brand-yellow-400); /* アクセント（サンイエロー・現状適用先なし・語彙確保） */
+  --color-coral: var(--brand-coral-400); /* 副アクセント（コーラル・現状適用先なし・語彙確保） */
 
   /* radius（WF --r-card / --r-ctl） */
   --radius-card: 16px;

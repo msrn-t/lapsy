@@ -12,7 +12,7 @@ import { NavIcon } from "./nav-icon";
 // width 196px・bg panel・右 1px border・上下 padding s3/s2・flex column。
 // `hidden md:flex` で md 未満では非表示（モバイルは MobileMenu が担当）。
 
-// WF .nav-item: gap10 / padding 9-10 / radius10 / font12。.active: bg #E2E2E2 + bold。
+// WF .nav-item: gap10 / padding 9-10 / radius10 / font12。.active: bg-nav-active（LAP-018: Primary100）+ bold。
 const navItemBase =
   "flex items-center gap-2.5 rounded-[10px] px-2.5 py-2.5 text-xs text-ink";
 const navItemActive = "bg-nav-active font-bold";

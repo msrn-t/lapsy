@@ -136,8 +136,8 @@ export default async function SessionsPage({
         <span
           className={
             isRunning
-              ? "inline-flex items-center rounded-full border border-line-2 bg-[#ECECEC] px-3 py-1.5 text-[11px] text-ink"
-              : "inline-flex items-center rounded-full border border-line-strong bg-[#D8D8D8] px-3 py-1.5 text-[11px] font-bold text-ink"
+              ? "inline-flex items-center rounded-full border border-line-2 bg-fill px-3 py-1.5 text-[11px] text-ink"
+              : "inline-flex items-center rounded-full border border-line-strong bg-nav-active px-3 py-1.5 text-[11px] font-bold text-ink"
           }
         >
           準備
@@ -145,8 +145,8 @@ export default async function SessionsPage({
         <span
           className={
             isRunning
-              ? "inline-flex items-center rounded-full border border-line-strong bg-[#D8D8D8] px-3 py-1.5 text-[11px] font-bold text-ink"
-              : "inline-flex items-center rounded-full border border-line-2 bg-[#ECECEC] px-3 py-1.5 text-[11px] text-ink"
+              ? "inline-flex items-center rounded-full border border-line-strong bg-nav-active px-3 py-1.5 text-[11px] font-bold text-ink"
+              : "inline-flex items-center rounded-full border border-line-2 bg-fill px-3 py-1.5 text-[11px] text-ink"
           }
         >
           実行中

@@ -11,6 +11,7 @@ import {
   type PresetValidationReason,
 } from "@/lib/preset";
 import { deriveSessionState } from "@/lib/session";
+import { materializeIfDue, materializeOnAbort } from "@/lib/materialize";
 import { LapRows, collectLaps } from "../presets/_form";
 import { SessionTimer } from "./_timer";
 
@@ -26,6 +27,7 @@ import { SessionTimer } from "./_timer";
 type ResultKind =
   | "started"
   | "aborted"
+  | "materialized"
   | "already_running"
   | "topic_not_found"
   | "preset_not_found"
@@ -41,6 +43,7 @@ type ResultKind =
 const SUCCESS_KINDS: ReadonlySet<ResultKind> = new Set<ResultKind>([
   "started",
   "aborted",
+  "materialized",
 ]);
 
 const ERROR_KINDS: ReadonlyArray<ResultKind> = [
@@ -101,10 +104,28 @@ export default async function SessionsPage({
   const { result } = await searchParams;
 
   // 進行中ランを取得（データ分離・§3-5）。@@index([userId,status]) が効く。
+  // userId/topicId は遅延評価 materialize（materializeIfDue）に必要なため select する（§3-5 A）。
   const running = await prisma.studySession.findFirst({
     where: { userId, status: "running" },
-    select: { id: true, topicId: true, presetSnapshot: true, startedAt: true },
+    select: {
+      id: true,
+      userId: true,
+      topicId: true,
+      presetSnapshot: true,
+      startedAt: true,
+    },
   });
+
+  // 再 open / 参照の遅延評価（§3-5 A・§7.3 step3/step5）。確定期限を過ぎていれば materialize し、
+  // running は確定済み（completed/aborted）になるため開始フォームへ戻す（?result=materialized）。
+  // due:false（進行中）なら従来の RunningView 表示へ続行する。
+  if (running) {
+    const outcome = await materializeIfDue(running, new Date());
+    if (outcome.due) {
+      revalidatePath("/dashboard/sessions");
+      redirect("/dashboard/sessions?result=materialized");
+    }
+  }
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 py-12">
@@ -354,8 +375,10 @@ async function startSession(formData: FormData) {
   back("started");
 }
 
-// 中断（server action・§3-3）。status:"running" のみ対象に status=aborted + endedAt をサーバー時刻で UPDATE。
-// 中断時刻はクライアントから受け取らない（改ざん対策）。StudyRecord の生成は LAP-010（§3-3）。
+// 中断（server action・LAP-010 §3-5 B）。status:"running" のみ対象に、cutoff=abortedAt（サーバー時刻）で
+// materialize（status 遷移 + StudyRecord 生成）へ昇格する。中断時刻はクライアントから受け取らない（改ざん対策）。
+// 完了済みブロック=completed/中断 work=aborted(実作業秒)を materialize し、中断が休憩区間/境界なら
+// 直前 work=completed・部分記録なし（§7.3 step4）。targetStatus は materialize 結果で決まる。
 async function abortSession(formData: FormData) {
   "use server";
 
@@ -365,12 +388,26 @@ async function abortSession(formData: FormData) {
   const back = (kind: ResultKind) =>
     redirect(`/dashboard/sessions?result=${kind}`);
 
-  const { count } = await prisma.studySession.updateMany({
-    where: { id, userId, status: "running" }, // データ分離 + running のみ
-    data: { status: "aborted", endedAt: new Date() }, // サーバー受信時刻を中断点に（§3-3）
+  // running のみ取得（データ分離・不在/他人/既確定は session 無しで一様化）。
+  const session = await prisma.studySession.findFirst({
+    where: { id, userId, status: "running" },
+    select: {
+      id: true,
+      userId: true,
+      topicId: true,
+      presetSnapshot: true,
+      startedAt: true,
+    },
   });
-  if (count === 0) {
+  if (!session) {
     back("not_found"); // 不在・他人・既に確定済みを一様化。
+    return;
+  }
+
+  // cutoff=サーバー受信時刻（改ざん対策）。$transaction + status guard で冪等に materialize（§3-3/§3-5 B）。
+  const outcome = await materializeOnAbort(session, new Date());
+  if (!outcome.materialized) {
+    back("not_found"); // 並行で先に確定された（敗者・count===0）。
     return;
   }
 
@@ -383,6 +420,7 @@ function ResultBanner({ kind }: { kind: ResultKind }) {
   const messages: Record<ResultKind, string> = {
     started: "ポモドーロを開始しました。",
     aborted: "ポモドーロを中断しました。",
+    materialized: "学習記録を確定しました。",
     already_running:
       "進行中のランがあります。中断または完了してから新しく開始してください。",
     topic_not_found: "対象のトピックが見つかりませんでした。",

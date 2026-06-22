@@ -42,8 +42,10 @@ describe("ナビ定義の整合", () => {
     }
   });
 
-  it("アカウントは暫定非活性（disabled）", () => {
-    expect(byKey("account").disabled).toBe(true);
+  it("アカウントは実ルートへ有効化されている（disabled なし）", () => {
+    expect(byKey("account").disabled).toBeFalsy();
+    expect(byKey("account").href).toBe("/dashboard/account");
+    expect(byKey("account").matchMode).toBe("exact");
   });
 
   it("key は一意", () => {
@@ -113,9 +115,22 @@ describe("isNavItemActive", () => {
     }
   });
 
-  it("disabled な項目は常に非アクティブ", () => {
-    expect(isNavItemActive("#", byKey("account"))).toBe(false);
-    expect(isNavItemActive("/dashboard/account", byKey("account"))).toBe(false);
+  it("アカウントは /dashboard/account でのみアクティブ（exact）", () => {
+    expect(isNavItemActive("/dashboard/account", byKey("account"))).toBe(true);
+    expect(isNavItemActive("/dashboard", byKey("account"))).toBe(false);
+    expect(isNavItemActive("/dashboard/accountX", byKey("account"))).toBe(false);
+  });
+
+  it("disabled な項目は常に非アクティブ（汎用検証）", () => {
+    // 将来 disabled を使う項目のため、ロジックが disabled で false を返すことを確認する。
+    const disabledItem: NavItem = {
+      key: "x",
+      label: "x",
+      href: "/dashboard/account",
+      matchMode: "exact",
+      disabled: true,
+    };
+    expect(isNavItemActive("/dashboard/account", disabledItem)).toBe(false);
   });
 });
 
@@ -152,6 +167,12 @@ describe("pageTitleForPath", () => {
     expect(pageTitleForPath("/dashboard/sessions")).toBe("タイマー");
     expect(pageTitleForPath("/dashboard/topics")).toBe("トピック");
     expect(pageTitleForPath("/dashboard/presets")).toBe("プリセット");
+    expect(pageTitleForPath("/dashboard/account")).toBe("アカウント設定");
+  });
+
+  it("最長前方一致: /dashboard/account は /dashboard より優先", () => {
+    // /dashboard も /dashboard/account も前方一致するが、より長い prefix を採用。
+    expect(pageTitleForPath("/dashboard/account")).toBe("アカウント設定");
   });
 
   it("最長前方一致: 子ルートは親セクションのタイトルに丸める", () => {

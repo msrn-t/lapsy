@@ -12,7 +12,8 @@ import {
 } from "@/lib/preset";
 import { deriveSessionState } from "@/lib/session";
 import { materializeIfDue, materializeOnAbort } from "@/lib/materialize";
-import { LapRows, collectLaps } from "../presets/_form";
+import { collectLaps } from "../presets/_form";
+import { LapRows } from "../presets/_lap-rows";
 import { SessionTimer } from "./_timer";
 
 // ポモドーロ実行（ラン）の開始・進行中表示・中断（LAP-009 §3 / §4）。
@@ -153,7 +154,7 @@ export default async function SessionsPage({
         </span>
         {!isRunning ? (
           <span className="ml-auto self-center text-[11px] text-ink-dim">
-            同時に進行できるランは1つまで（§4）
+            同時に進行できるランは1つまで
           </span>
         ) : null}
       </div>
@@ -285,10 +286,10 @@ async function StartFormView({ userId }: { userId: string }) {
 
         <fieldset className="flex flex-col gap-2 rounded-card border border-line bg-card p-6">
           <legend className="font-[family-name:var(--font-fredoka)] text-xs font-medium uppercase tracking-wide text-ink-dim">
-            ラップ構成（プリセット未選択時・作業/休憩を秒で入力）
+            ラップ構成（プリセット未選択時・作業/休憩を分で入力）
           </legend>
           <p className="text-[11px] text-ink-dim">
-            作業時間は60秒以上、休憩時間は0秒以上。最低1ラップ・最大{MAX_LAPS}
+            作業時間は1分以上、休憩時間は0分以上。最低1ラップ・最大{MAX_LAPS}
             ラップ。
           </p>
           <LapRows />
@@ -454,12 +455,12 @@ function ResultBanner({ kind }: { kind: ResultKind }) {
     topic_not_found: "対象のトピックが見つかりませんでした。",
     preset_not_found: "対象のプリセットが見つかりませんでした。",
     empty_config: "ラップを最低1つ設定してください。",
-    lap_work_too_short: "ラップの作業時間は60秒以上に設定してください。",
+    lap_work_too_short: "ラップの作業時間は1分以上に設定してください。",
     lap_work_too_long: "設定時間が長すぎます。",
     break_negative: "休憩時間に負の値は設定できません。",
     break_too_long: "設定時間が長すぎます。",
     too_many_laps: "ラップ数が多すぎます（上限 20）。",
-    invalid_number: "作業時間・休憩時間は整数（秒）で入力してください。",
+    invalid_number: "作業時間・休憩時間は整数（分）で入力してください。",
     not_found:
       "中断対象のランが見つかりませんでした（既に終了している可能性があります）。",
   };

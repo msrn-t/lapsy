@@ -148,7 +148,7 @@ export default async function DashboardPage() {
         />
         <Kpi
           label="アクティブ"
-          value={String(kpis.activeTopicCount)}
+          value={`${kpis.activeTopicCount}件`}
           sub="トピック数"
         />
       </div>

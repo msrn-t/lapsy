@@ -11,7 +11,7 @@ export default function NotFound() {
     <main className="flex min-h-screen flex-col items-center justify-center bg-page p-6">
       <div className="w-full max-w-[420px] rounded-card border border-line bg-card px-6 py-8 text-center">
         <div className="mb-4 flex justify-center">
-          <BrandIcon size={52} />
+          <BrandIcon size={112} />
         </div>
         <p className="font-[family-name:var(--font-fredoka)] text-5xl font-semibold text-ink">
           404

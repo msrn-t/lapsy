@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { validatePresetInput, parsePresetConfig, MAX_LAPS } from "@/lib/preset";
-import { LapRows, collectLaps } from "../../_form";
+import { collectLaps } from "../../_form";
+import { LapRows } from "../../_lap-rows";
 
 // ポモドーロのプリセット編集（LAP-008 §3 / §4-B）。
 // 認証・データ分離は二層: ページ・server action 冒頭で requireUserId() を呼び、
@@ -58,10 +59,10 @@ export default async function EditPresetPage({
 
         <fieldset className="flex flex-col gap-2">
           <legend className="text-sm font-medium">
-            ラップ（作業/休憩を秒で入力・空欄の行は無視されます）
+            ラップ（作業/休憩を分で入力）
           </legend>
           <p className="text-xs text-ink-dim">
-            作業時間は60秒以上、休憩時間は0秒以上。最低1ラップ・最大{MAX_LAPS}
+            作業時間は1分以上、休憩時間は0分以上。最低1ラップ・最大{MAX_LAPS}
             ラップ。
           </p>
           <LapRows initial={config} />

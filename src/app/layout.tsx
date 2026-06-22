@@ -28,10 +28,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" className={`${fredoka.variable} ${notoSansJp.variable}`}>
+      {/* 中央寄せラッパは撤去（LAP-014 §3 判断点1）。
+          公開ページ（/・/login 等）は自前で中央寄せ済み、保護ページは
+          (protected)/layout.tsx が全幅 app shell を構成するため、ここでは
+          {children} を裸で出力する。 */}
       <body className="min-h-screen font-[family-name:var(--font-noto-sans-jp)] antialiased">
-        <div className="mx-auto max-w-screen-lg px-4 py-8 sm:px-6 lg:px-8">
-          {children}
-        </div>
+        {children}
       </body>
     </html>
   );

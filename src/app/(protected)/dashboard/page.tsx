@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { requireUserId, getCurrentUser } from "@/lib/auth-helpers";
+import { requireUserId } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { materializeIfDue } from "@/lib/materialize";
 import {
@@ -13,7 +12,6 @@ import {
   HEATMAP_WINDOW_DAYS,
   type TopicSum,
 } from "@/lib/aggregate";
-import { LogoutButton } from "../logout-button";
 import {
   TopicTotalsChart,
   HeatmapChart,
@@ -37,7 +35,6 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const userId = await requireUserId();
-  const user = await getCurrentUser(); // 表示用（email・admin バッジ）。
   const now = new Date();
 
   // 集計入口の確定漏れ回収（§3-3）。running は高々 1 件（partial unique index）。
@@ -110,34 +107,11 @@ export default async function DashboardPage() {
     now,
   );
 
+  // 共通ヘッダ（タイトル / ユーザー / ナビ / ログアウト）は app shell（(protected)/layout.tsx）が
+  // 提供するため、ここでは集計コンテンツのみを描画する（LAP-014 で重複導線を撤去）。
+  // 外周余白は shell の content padding が担うため、ここでは縦の段組のみ。
   return (
-    <main className="flex flex-col gap-8 py-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">ダッシュボード</h1>
-        <LogoutButton />
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          ログイン中: {user?.email}
-          {user?.isAdmin ? "（管理者）" : ""}
-        </p>
-        <nav className="flex gap-3 text-sm">
-          <Link
-            href="/dashboard/sessions"
-            className="underline hover:text-gray-700 dark:hover:text-gray-300"
-          >
-            ポモドーロ実行
-          </Link>
-          <Link
-            href="/dashboard/topics"
-            className="underline hover:text-gray-700 dark:hover:text-gray-300"
-          >
-            トピック
-          </Link>
-        </nav>
-      </div>
-
+    <div className="flex flex-col gap-8">
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">トピック別の累計学習時間</h2>
         <p className="text-xs text-gray-500">
@@ -173,6 +147,6 @@ export default async function DashboardPage() {
         </p>
         <CountdownList items={countdowns} />
       </section>
-    </main>
+    </div>
   );
 }

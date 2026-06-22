@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getMailer } from "@/lib/mailer";
+import { BrandIcon } from "@/components/brand-icon";
 import {
   RESET_REQUEST_ACK_MESSAGE,
   buildResetUrl,
@@ -80,50 +81,71 @@ export default async function PasswordResetRequestPage({
   }
 
   return (
-    <main className="mx-auto flex max-w-sm flex-col gap-6 py-16">
-      <h1 className="text-2xl font-bold tracking-tight">
-        パスワードの再設定
-      </h1>
+    <main className="flex min-h-[80vh] flex-col items-center justify-center">
+      <div className="w-full max-w-[380px] rounded-card border border-line bg-card px-6 py-8">
+        {/* ブランド（WF 補完） */}
+        <div className="mb-6 flex flex-col items-center gap-3">
+          <BrandIcon size={52} />
+          <span className="font-[family-name:var(--font-fredoka)] text-[24px] font-semibold leading-none text-ink">
+            Lapsy
+          </span>
+          <span className="text-[11px] text-ink-dim">
+            ラップで積み上げる、資格学習タイマー
+          </span>
+        </div>
 
-      <p className="text-sm text-gray-600 dark:text-gray-400">
-        登録済みのメールアドレスを入力してください。再設定用のリンクをお送りします。
-      </p>
+        <h1 className="text-center font-[family-name:var(--font-fredoka)] text-[17px] font-medium text-ink">
+          パスワードをリセット
+        </h1>
 
-      {sent ? (
-        <p
-          role="status"
-          className="rounded border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-        >
-          {RESET_REQUEST_ACK_MESSAGE}
+        <p className="mb-6 mt-1.5 text-center text-xs leading-relaxed text-ink-dim">
+          登録済みのメールアドレスを入力してください。再設定用のリンクをお送りします。
         </p>
-      ) : null}
 
-      <form action={requestReset} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm">
-          メールアドレス
-          <input
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
-            placeholder="you@example.com"
-            className="rounded border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-          />
-        </label>
-        <button
-          type="submit"
-          className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300"
-        >
-          再設定リンクを送信
-        </button>
-      </form>
+        {sent ? (
+          <p
+            role="status"
+            className="mb-6 rounded-ctl border border-dashed border-line-2 bg-[#EDEDED] px-3 py-2.5 text-xs leading-relaxed text-ink"
+          >
+            {RESET_REQUEST_ACK_MESSAGE}
+          </p>
+        ) : null}
 
-      <a
-        href="/login"
-        className="text-sm text-blue-600 hover:underline dark:text-blue-400"
-      >
-        ログインページへ
-      </a>
+        <form action={requestReset}>
+          <div className="mb-6">
+            <label
+              htmlFor="email"
+              className="mb-2 block text-xs font-medium text-ink"
+            >
+              メールアドレス
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="you@example.com"
+              className="min-h-[44px] w-full rounded-ctl border border-line-2 bg-fill px-3 text-sm text-ink placeholder:text-placeholder focus:border-line-strong focus:outline-none"
+            />
+          </div>
+          <button
+            type="submit"
+            className="flex min-h-[46px] w-full items-center justify-center rounded-ctl bg-btn font-[family-name:var(--font-fredoka)] text-sm font-medium text-btn-ink transition hover:opacity-90"
+          >
+            再設定リンクを送信
+          </button>
+        </form>
+
+        <p className="mt-6 text-center text-[11px] leading-relaxed text-ink-dim">
+          <a
+            href="/login"
+            className="text-xs text-ink underline underline-offset-2"
+          >
+            ログイン画面に戻る
+          </a>
+        </p>
+      </div>
     </main>
   );
 }

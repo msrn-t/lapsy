@@ -103,6 +103,16 @@ describe("isNavItemActive", () => {
     expect(isNavItemActive("/administration", byKey("admin"))).toBe(false);
   });
 
+  it("公開パスではどの主要ナビもアクティブにならない（アクティブ表示の境界）", () => {
+    // root ラッパ撤去で公開ページ（/・/login）にも shell ロジックが評価され得ないが、
+    // 仮に評価されてもアクティブ項目が出ないことを保証する（誤点灯の回帰防止）。
+    for (const path of ["/", "/login", "/invite/abc", "/password-reset"]) {
+      for (const item of PRIMARY_NAV) {
+        expect(isNavItemActive(path, item)).toBe(false);
+      }
+    }
+  });
+
   it("disabled な項目は常に非アクティブ", () => {
     expect(isNavItemActive("#", byKey("account"))).toBe(false);
     expect(isNavItemActive("/dashboard/account", byKey("account"))).toBe(false);
@@ -161,6 +171,13 @@ describe("pageTitleForPath", () => {
     // /admin 直下や未定義の admin 配下は最寄りの "管理" に丸める。
     expect(pageTitleForPath("/admin")).toBe("管理");
     expect(pageTitleForPath("/admin/other")).toBe("管理");
+  });
+
+  it("最長前方一致: admin サブルートは親セクションのタイトルに丸める", () => {
+    // /admin/users/123 は /admin（管理）と /admin/users（ユーザー管理）の双方に前方一致するが、
+    // より長い /admin/users を採用する（最長前方一致）。
+    expect(pageTitleForPath("/admin/users/123")).toBe("ユーザー管理");
+    expect(pageTitleForPath("/admin/invite/token")).toBe("招待");
   });
 
   it("未掲載パスは既定タイトル", () => {

@@ -9,6 +9,7 @@ import type {
   TopicTotal,
   DeadlineCountdown,
 } from "@/lib/aggregate";
+import { toJstDateKey } from "@/lib/aggregate";
 
 // 秒を「H時間M分」/「M分」へ整形（表示用）。
 function formatHm(totalSeconds: number): string {
@@ -230,7 +231,7 @@ export function CountdownList({ items }: { items: DeadlineCountdown[] }) {
   return (
     <ul className="flex flex-col gap-2">
       {items.map((it) => {
-        const deadlineKey = it.deadline.toISOString().slice(0, 10);
+        const deadlineKey = toJstDateKey(it.deadline);
         const label = it.isOverdue
           ? `${Math.abs(it.daysRemaining)}日超過`
           : it.daysRemaining === 0

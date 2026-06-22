@@ -151,7 +151,7 @@ export default async function TopicsPage({
             name="title"
             required
             maxLength={200}
-            placeholder="例: 数学（線形代数）"
+            placeholder="基本情報技術者試験（FE）"
             className="min-h-[44px] rounded-ctl border border-line-2 bg-fill px-3 text-sm placeholder:text-placeholder"
           />
         </label>

@@ -9,7 +9,8 @@ import {
   MAX_LAPS,
   type LapConfig,
 } from "@/lib/preset";
-import { LapRows, collectLaps } from "./_form";
+import { collectLaps } from "./_form";
+import { LapRows } from "./_lap-rows";
 
 // ポモドーロのプリセット一覧 + 作成 + 削除（LAP-008 §3 / §4）。
 // 認証・データ分離は二層: (1) auth.config の authorized で /dashboard 配下をログイン必須に保護、
@@ -134,10 +135,10 @@ export default async function PresetsPage({
 
         <fieldset className="flex flex-col gap-2">
           <legend className="text-sm font-medium">
-            ラップ（作業/休憩を秒で入力・空欄の行は無視されます）
+            ラップ（作業/休憩を分で入力）
           </legend>
           <p className="text-xs text-ink-dim">
-            作業時間は60秒以上、休憩時間は0秒以上。最低1ラップ・最大{MAX_LAPS}
+            作業時間は1分以上、休憩時間は0分以上。最低1ラップ・最大{MAX_LAPS}
             ラップ。
           </p>
           <LapRows />
@@ -261,11 +262,11 @@ function ResultBanner({ kind }: { kind: ResultKind }) {
     name_too_long: "プリセット名が長すぎます。",
     empty_config: "ラップを最低1つ設定してください。",
     too_many_laps: "ラップ数が多すぎます（上限 20）。",
-    lap_work_too_short: "ラップの作業時間は60秒以上に設定してください。",
+    lap_work_too_short: "ラップの作業時間は1分以上に設定してください。",
     lap_work_too_long: "設定時間が長すぎます。",
     break_negative: "休憩時間に負の値は設定できません。",
     break_too_long: "設定時間が長すぎます。",
-    invalid_number: "作業時間・休憩時間は整数（秒）で入力してください。",
+    invalid_number: "作業時間・休憩時間は整数（分）で入力してください。",
     not_found: "対象のプリセットが見つかりませんでした。",
   };
 

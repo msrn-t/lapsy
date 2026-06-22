@@ -127,9 +127,36 @@ export default async function SessionsPage({
     }
   }
 
+  const isRunning = !!running;
+
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-6 py-12">
-      <h1 className="text-2xl font-bold tracking-tight">ポモドーロ実行</h1>
+    <div className="flex flex-col gap-6">
+      {/* WF chip タブ（準備 / 実行中・装飾）。実体は running 有無の分岐（§3.2 U3・クリック遷移なし）。 */}
+      <div className="flex items-center gap-2">
+        <span
+          className={
+            isRunning
+              ? "inline-flex items-center rounded-full border border-line-2 bg-[#ECECEC] px-3 py-1.5 text-[11px] text-ink"
+              : "inline-flex items-center rounded-full border border-line-strong bg-[#D8D8D8] px-3 py-1.5 text-[11px] font-bold text-ink"
+          }
+        >
+          準備
+        </span>
+        <span
+          className={
+            isRunning
+              ? "inline-flex items-center rounded-full border border-line-strong bg-[#D8D8D8] px-3 py-1.5 text-[11px] font-bold text-ink"
+              : "inline-flex items-center rounded-full border border-line-2 bg-[#ECECEC] px-3 py-1.5 text-[11px] text-ink"
+          }
+        >
+          実行中
+        </span>
+        {!isRunning ? (
+          <span className="ml-auto self-center text-[11px] text-ink-dim">
+            同時に進行できるランは1つまで（§4）
+          </span>
+        ) : null}
+      </div>
 
       {result && isResultKind(result) ? <ResultBanner kind={result} /> : null}
 
@@ -138,7 +165,7 @@ export default async function SessionsPage({
       ) : (
         <StartFormView userId={userId} />
       )}
-    </main>
+    </div>
   );
 }
 
@@ -162,24 +189,17 @@ function RunningView({
   });
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-[420px] flex-col gap-4">
+      {/* WF 07 実行モード: 中央カードに timer-ring / prog / run-meta。中断ボタンも内包。 */}
       <SessionTimer
         initial={state}
         startedAt={running.startedAt.toISOString()}
         snapshot={snapshot}
+        abortAction={abortSession}
+        sessionId={running.id}
       />
 
-      <form action={abortSession} className="self-center">
-        <input type="hidden" name="id" value={running.id} />
-        <button
-          type="submit"
-          className="rounded border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950"
-        >
-          中断する
-        </button>
-      </form>
-
-      <p className="text-center text-xs text-gray-400">
+      <p className="text-center text-[11px] text-ink-dim">
         ※ 進行状態はサーバー時刻を正とします。ブラウザを閉じて再度開いても進行は復元されます。
       </p>
     </div>
@@ -203,11 +223,11 @@ async function StartFormView({ userId }: { userId: string }) {
 
   if (topics.length === 0) {
     return (
-      <p className="text-sm text-gray-500">
+      <p className="rounded-card border border-dashed border-line-2 px-6 py-8 text-center text-xs leading-7 text-ink-dim">
         対象の学習トピックがありません。先に
         <a
           href="/dashboard/topics"
-          className="mx-1 underline hover:text-gray-700 dark:hover:text-gray-300"
+          className="mx-1 text-ink underline underline-offset-2"
         >
           トピック
         </a>
@@ -216,68 +236,76 @@ async function StartFormView({ userId }: { userId: string }) {
     );
   }
 
+  // WF 07 準備モード: cards c2（左=トピック/プリセット選択、右=ラップ構成）+ 下部に開始ボタン。
+  // chip 型プリセット選択は装飾のみで、実体は <select name="presetId"> を維持（§4-4・name 不変）。
   return (
-    <form
-      action={startSession}
-      className="flex flex-col gap-4 rounded border border-gray-200 p-4 dark:border-gray-800"
-    >
-      <h2 className="text-sm font-semibold">新しいポモドーロを開始</h2>
+    <form action={startSession} className="flex flex-col gap-4">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="flex flex-col gap-4 rounded-card border border-line bg-card p-6">
+          <div>
+            <p className="mb-2 font-[family-name:var(--font-fredoka)] text-xs font-medium uppercase tracking-wide text-ink-dim">
+              対象トピックを選択
+            </p>
+            <select
+              name="topicId"
+              required
+              className="min-h-[44px] w-full rounded-ctl border border-line-2 bg-fill px-3 text-sm"
+            >
+              {topics.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.title}
+                </option>
+              ))}
+            </select>
+          </div>
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">
-          対象トピック<span className="text-red-600">*</span>
-        </span>
-        <select
-          name="topicId"
-          required
-          className="rounded border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+          <div>
+            <p className="mb-2 font-[family-name:var(--font-fredoka)] text-xs font-medium uppercase tracking-wide text-ink-dim">
+              プリセットを選択（任意）
+            </p>
+            <select
+              name="presetId"
+              className="min-h-[44px] w-full rounded-ctl border border-line-2 bg-fill px-3 text-sm"
+            >
+              <option value="">（プリセットを使わず下のラップを手入力）</option>
+              {presets.map((p) => {
+                const config = parsePresetConfig(p.config);
+                return (
+                  <option key={p.id} value={p.id}>
+                    {p.name}（{summarizeConfig(config)}）
+                  </option>
+                );
+              })}
+            </select>
+            <p className="mt-1.5 text-[11px] text-ink-dim">
+              プリセットを選ぶと下のラップ手入力は無視されます。
+            </p>
+          </div>
+        </div>
+
+        <fieldset className="flex flex-col gap-2 rounded-card border border-line bg-card p-6">
+          <legend className="font-[family-name:var(--font-fredoka)] text-xs font-medium uppercase tracking-wide text-ink-dim">
+            ラップ構成（プリセット未選択時・作業/休憩を秒で入力）
+          </legend>
+          <p className="text-[11px] text-ink-dim">
+            作業時間は60秒以上、休憩時間は0秒以上。最低1ラップ・最大{MAX_LAPS}
+            ラップ。
+          </p>
+          <LapRows />
+        </fieldset>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="submit"
+          className="inline-flex min-h-[46px] items-center justify-center rounded-ctl bg-btn px-6 text-btn-ink"
         >
-          {topics.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.title}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">プリセット（任意）</span>
-        <select
-          name="presetId"
-          className="rounded border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
-        >
-          <option value="">（プリセットを使わず下のラップを手入力）</option>
-          {presets.map((p) => {
-            const config = parsePresetConfig(p.config);
-            return (
-              <option key={p.id} value={p.id}>
-                {p.name}（{summarizeConfig(config)}）
-              </option>
-            );
-          })}
-        </select>
-        <span className="text-xs text-gray-400">
-          プリセットを選ぶと下のラップ手入力は無視されます。
+          ▶ 開始
+        </button>
+        <span className="text-[11px] text-ink-dim">
+          作業のみ計上・休憩は学習時間に含めません（§4）
         </span>
-      </label>
-
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-medium">
-          ラップを手入力（プリセット未選択時・作業/休憩を秒で入力）
-        </legend>
-        <p className="text-xs text-gray-500">
-          作業時間は60秒以上、休憩時間は0秒以上。最低1ラップ・最大{MAX_LAPS}
-          ラップ。
-        </p>
-        <LapRows />
-      </fieldset>
-
-      <button
-        type="submit"
-        className="self-start rounded border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900"
-      >
-        開始
-      </button>
+      </div>
     </form>
   );
 }
@@ -441,8 +469,8 @@ function ResultBanner({ kind }: { kind: ResultKind }) {
       role="alert"
       className={
         ok
-          ? "rounded border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300"
-          : "rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
+          ? "rounded-ctl border border-line bg-panel px-3 py-2.5 text-xs text-ink"
+          : "flex gap-2 rounded-ctl border border-dashed border-error px-3 py-2.5 text-xs text-error"
       }
     >
       {messages[kind]}

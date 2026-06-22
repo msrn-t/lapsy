@@ -9,6 +9,7 @@ import {
   movingAverage,
   joinTopicTotals,
   computeDeadlineCountdowns,
+  computeDashboardKpis,
   HEATMAP_WINDOW_DAYS,
   type TopicSum,
 } from "@/lib/aggregate";
@@ -17,6 +18,7 @@ import {
   HeatmapChart,
   MovingAverageChart,
   CountdownList,
+  formatHoursLabel,
 } from "./_charts";
 
 // ダッシュボード集計と可視化（LAP-011 §3 / SPEC §4・§7.2・§7.4・§7.5）。
@@ -63,7 +65,7 @@ export default async function DashboardPage() {
   const windowStart = jstDateKeyToUtcStart(startKey);
 
   // 集計クエリ（すべて userId 必須・§3-2）。
-  const [topicSumsRaw, activeTopics, windowRecords, deadlineTopics] =
+  const [topicSumsRaw, activeTopics, windowRecords, deadlineTopics, totalAgg] =
     await Promise.all([
       // (a) トピック別累計: アーカイブ除外（topic:{isArchived:false}）・全期間。@@index([userId,topicId])。
       prisma.studyRecord.groupBy({
@@ -87,6 +89,12 @@ export default async function DashboardPage() {
         where: { userId, isArchived: false, deadline: { not: null } },
         select: { id: true, title: true, deadline: true },
       }),
+      // (e・LAP-015 KPI) 総学習時間: 全 StudyRecord の SUM(countedSeconds)（アーカイブ含む全期間累計）。
+      //     データ分離は where:{userId}（§7.5）。
+      prisma.studyRecord.aggregate({
+        where: { userId },
+        _sum: { countedSeconds: true },
+      }),
     ]);
 
   // 純関数整形（§3-4）。
@@ -107,46 +115,104 @@ export default async function DashboardPage() {
     now,
   );
 
+  // (e・LAP-015) サマリ KPI を純関数で導出（既存集計 + 総学習時間 aggregate から）。
+  const kpis = computeDashboardKpis({
+    totalSeconds: totalAgg._sum.countedSeconds ?? 0,
+    daily,
+    movingAverage: ma,
+    activeTopicCount: activeTopics.length,
+  });
+
   // 共通ヘッダ（タイトル / ユーザー / ナビ / ログアウト）は app shell（(protected)/layout.tsx）が
   // 提供するため、ここでは集計コンテンツのみを描画する（LAP-014 で重複導線を撤去）。
   // 外周余白は shell の content padding が担うため、ここでは縦の段組のみ。
+  // 構造は WF 04: KPI cards c4 → ヒートマップ/移動平均 cards c2 → 累計バー/カウントダウン cards c2。
   return (
-    <div className="flex flex-col gap-8">
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">トピック別の累計学習時間</h2>
-        <p className="text-xs text-gray-500">
-          アーカイブ済みトピックは除外しています（全期間の累計）。
-        </p>
-        <TopicTotalsChart totals={topicTotals} />
-      </section>
+    <div className="flex flex-col gap-4">
+      {/* サマリ KPI（WF .cards.c4・モバイル 2 列）。 */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Kpi
+          label="総学習時間"
+          value={formatHoursLabel(kpis.totalSeconds)}
+          sub="全トピック累計"
+        />
+        <Kpi
+          label="今日"
+          value={formatHoursLabel(kpis.todaySeconds)}
+          sub="Asia/Tokyo 基準"
+        />
+        <Kpi
+          label="7日平均"
+          value={formatHoursLabel(kpis.sevenDayAvgSeconds)}
+          sub="移動平均"
+        />
+        <Kpi
+          label="アクティブ"
+          value={String(kpis.activeTopicCount)}
+          sub="トピック数"
+        />
+      </div>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">
-          日別の学習量（直近 {HEATMAP_WINDOW_DAYS} 日）
-        </h2>
-        <p className="text-xs text-gray-500">
-          トピック横断の総学習量（アーカイブ済みの過去記録も含む）。日境界は Asia/Tokyo。
-        </p>
-        <HeatmapChart daily={daily} />
-      </section>
+      {/* ヒートマップ + 7日移動平均（WF .cards.c2）。 */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="rounded-card border border-line bg-card p-6">
+          <p className="mb-2 font-[family-name:var(--font-fredoka)] text-xs font-medium uppercase tracking-wide text-ink-dim">
+            学習ヒートマップ（日別・トピック横断・直近 {HEATMAP_WINDOW_DAYS} 日）
+          </p>
+          <HeatmapChart daily={daily} />
+        </section>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">
-          7日移動平均（直近 {HEATMAP_WINDOW_DAYS} 日）
-        </h2>
-        <p className="text-xs text-gray-500">
-          学習ゼロの日も 0 として含めた 7 日移動平均（先頭は部分平均）。
-        </p>
-        <MovingAverageChart points={ma} />
-      </section>
+        <section className="rounded-card border border-line bg-card p-6">
+          <p className="mb-2 font-[family-name:var(--font-fredoka)] text-xs font-medium uppercase tracking-wide text-ink-dim">
+            7日移動平均
+          </p>
+          <MovingAverageChart points={ma} />
+          <p className="mt-1.5 text-[11px] text-ink-dim">
+            学習ゼロの日も 0 で埋めて算出（先頭は部分平均）。
+          </p>
+        </section>
+      </div>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">期限カウントダウン</h2>
-        <p className="text-xs text-gray-500">
-          期限を過ぎたトピックは警告表示します（自動アーカイブはしません）。
-        </p>
-        <CountdownList items={countdowns} />
-      </section>
+      {/* トピック別累計バー + 期限カウントダウン（WF .cards.c2）。 */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="rounded-card border border-line bg-card p-6">
+          <p className="mb-3 font-[family-name:var(--font-fredoka)] text-xs font-medium uppercase tracking-wide text-ink-dim">
+            トピック別 累計学習時間
+          </p>
+          <TopicTotalsChart totals={topicTotals} />
+          <p className="mt-1.5 text-[11px] text-ink-dim">
+            アーカイブ済みトピックは除外（全期間の累計）。
+          </p>
+        </section>
+
+        <section className="rounded-card border border-line bg-card p-6">
+          <p className="mb-2 font-[family-name:var(--font-fredoka)] text-xs font-medium uppercase tracking-wide text-ink-dim">
+            期限カウントダウン
+          </p>
+          <CountdownList items={countdowns} />
+        </section>
+      </div>
+    </div>
+  );
+}
+
+// WF .kpi カード（k-label / k-val / k-sub）。
+function Kpi({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+}) {
+  return (
+    <div className="rounded-card border border-line bg-card p-4">
+      <div className="mb-1.5 text-[11px] text-ink-dim">{label}</div>
+      <div className="font-[family-name:var(--font-fredoka)] text-[22px] font-semibold text-ink">
+        {value}
+      </div>
+      <div className="mt-0.5 text-[10px] text-ink-dim">{sub}</div>
     </div>
   );
 }

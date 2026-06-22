@@ -1,12 +1,14 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
+import { BrandIcon } from "@/components/brand-icon";
 import {
   RESET_INVALID_LINK_MESSAGE,
   evaluatePasswordResetToken,
   hashResetToken,
   validateNewPassword,
 } from "@/lib/password-reset";
+import { ResetPerformForm } from "./_form";
 
 // 公開リセット実行ページ（LAP-005 §3-F）。
 // authorized は /dashboard・/admin のみ保護するため /password-reset/[token] は公開のまま。
@@ -96,67 +98,74 @@ export default async function PasswordResetExecutePage({
   }
 
   return (
-    <main className="mx-auto flex max-w-sm flex-col gap-6 py-16">
-      <h1 className="text-2xl font-bold tracking-tight">
-        新しいパスワードを設定
-      </h1>
+    <main className="flex min-h-[80vh] flex-col items-center justify-center">
+      <div className="w-full max-w-[380px] rounded-card border border-line bg-card px-6 py-8">
+        {/* ブランド（WF 補完） */}
+        <div className="mb-6 flex flex-col items-center gap-3">
+          <BrandIcon size={52} />
+          <span className="font-[family-name:var(--font-fredoka)] text-[24px] font-semibold leading-none text-ink">
+            Lapsy
+          </span>
+          <span className="text-[11px] text-ink-dim">
+            ラップで積み上げる、資格学習タイマー
+          </span>
+        </div>
 
-      <p className="text-sm text-gray-600 dark:text-gray-400">
-        新しいログイン用パスワードを設定してください。
-      </p>
-
-      {error ? (
-        <p
-          role="alert"
-          className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
-        >
-          {error === "weak_password"
-            ? "パスワードは8文字以上で設定してください。"
-            : RESET_INVALID_LINK_MESSAGE}
+        <h1 className="text-center font-[family-name:var(--font-fredoka)] text-[17px] font-medium text-ink">
+          新しいパスワードを設定
+        </h1>
+        <p className="mb-6 mt-1.5 text-center text-xs leading-relaxed text-ink-dim">
+          新しいログイン用パスワードを設定してください。
         </p>
-      ) : null}
 
-      <form action={resetPassword} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm">
-          新しいパスワード（8文字以上）
-          <input
-            name="password"
-            type="password"
-            required
-            minLength={8}
-            autoComplete="new-password"
-            className="rounded border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-          />
-        </label>
-        <button
-          type="submit"
-          className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300"
-        >
-          パスワードを更新
-        </button>
-      </form>
+        <ResetPerformForm
+          action={resetPassword}
+          errorMessage={
+            error
+              ? error === "weak_password"
+                ? "パスワードは8文字以上で設定してください。"
+                : RESET_INVALID_LINK_MESSAGE
+              : undefined
+          }
+        />
+      </div>
     </main>
   );
 }
 
 function ErrorCard({ message }: { message: string }) {
   return (
-    <main className="mx-auto flex max-w-sm flex-col gap-6 py-16">
-      <h1 className="text-2xl font-bold tracking-tight">
-        パスワードを再設定できません
-      </h1>
-      <p
-        role="alert"
-        className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
-      >
-        {message}
-      </p>
-      <a
-        href="/password-reset"
-        className="text-sm text-blue-600 hover:underline dark:text-blue-400"
-      >
-        再度リセットを要求する
-      </a>
+    <main className="flex min-h-[80vh] flex-col items-center justify-center">
+      <div className="w-full max-w-[380px] rounded-card border border-line bg-card px-6 py-8">
+        {/* ブランド */}
+        <div className="mb-6 flex flex-col items-center gap-3">
+          <BrandIcon size={52} />
+          <span className="font-[family-name:var(--font-fredoka)] text-[24px] font-semibold leading-none text-ink">
+            Lapsy
+          </span>
+          <span className="text-[11px] text-ink-dim">
+            ラップで積み上げる、資格学習タイマー
+          </span>
+        </div>
+
+        <h1 className="mb-6 text-center font-[family-name:var(--font-fredoka)] text-[17px] font-medium text-ink">
+          パスワードを再設定できません
+        </h1>
+        <p
+          role="alert"
+          className="mb-6 flex items-start gap-2 rounded-ctl border border-dashed border-error px-3 py-2.5 text-xs text-error"
+        >
+          {message}
+        </p>
+        <p className="text-center">
+          <a
+            href="/password-reset"
+            className="text-xs text-ink underline underline-offset-2"
+          >
+            リセットを再申請する
+          </a>
+        </p>
+      </div>
     </main>
   );
 }

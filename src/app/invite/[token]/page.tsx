@@ -2,10 +2,12 @@ import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
+import { BrandIcon } from "@/components/brand-icon";
 import {
   evaluateInvitation,
   validateInvitePassword,
 } from "@/lib/invitation";
+import { InviteAcceptForm } from "./_form";
 
 // 公開受諾ページ（LAP-003 §3-E）。
 // authorized は /dashboard・/admin のみ保護するため /invite/[token] は公開のまま。
@@ -108,70 +110,69 @@ export default async function InviteAcceptPage({
   }
 
   return (
-    <main className="mx-auto flex max-w-sm flex-col gap-6 py-16">
-      <h1 className="text-2xl font-bold tracking-tight">パスワードを設定</h1>
+    <main className="flex min-h-[80vh] flex-col items-center justify-center">
+      <div className="w-full max-w-[380px] rounded-card border border-line bg-card px-6 py-8">
+        {/* ブランド */}
+        <div className="mb-6 flex flex-col items-center gap-3">
+          <BrandIcon size={52} />
+          <span className="font-[family-name:var(--font-fredoka)] text-[24px] font-semibold leading-none text-ink">
+            Lapsy
+          </span>
+          <span className="text-[11px] text-ink-dim">
+            ラップで積み上げる、資格学習タイマー
+          </span>
+        </div>
 
-      <p className="text-sm text-gray-600 dark:text-gray-400">
-        {email} の招待を受け付けます。ログイン用のパスワードを設定してください。
-      </p>
-
-      {error ? (
-        <p
-          role="alert"
-          className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
-        >
-          {ERROR_MESSAGES[error as AcceptError] ?? "エラーが発生しました。"}
+        <h1 className="text-center font-[family-name:var(--font-fredoka)] text-[17px] font-medium text-ink">
+          アカウントを登録
+        </h1>
+        <p className="mb-6 mt-1.5 text-center text-xs leading-relaxed text-ink-dim">
+          招待されたメールアドレスにパスワードを設定すると、登録が完了します。
         </p>
-      ) : null}
 
-      <form action={accept} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm">
-          メールアドレス
-          <input
-            type="email"
-            value={email}
-            readOnly
-            className="rounded border border-gray-300 bg-gray-100 px-3 py-2 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          パスワード（8文字以上）
-          <input
-            name="password"
-            type="password"
-            required
-            minLength={8}
-            autoComplete="new-password"
-            className="rounded border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-          />
-        </label>
-        <button
-          type="submit"
-          className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300"
-        >
-          登録する
-        </button>
-      </form>
+        <InviteAcceptForm action={accept} email={email} initialError={error} />
+
+        <p className="mt-6 text-center text-[11px] leading-relaxed text-ink-dim">
+          この招待リンクの有効期限は発行から72時間です。
+        </p>
+      </div>
     </main>
   );
 }
 
 function ErrorCard({ message }: { message: string }) {
   return (
-    <main className="mx-auto flex max-w-sm flex-col gap-6 py-16">
-      <h1 className="text-2xl font-bold tracking-tight">招待を受け付けできません</h1>
-      <p
-        role="alert"
-        className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
-      >
-        {message}
-      </p>
-      <a
-        href="/login"
-        className="text-sm text-blue-600 hover:underline dark:text-blue-400"
-      >
-        ログインページへ
-      </a>
+    <main className="flex min-h-[80vh] flex-col items-center justify-center">
+      <div className="w-full max-w-[380px] rounded-card border border-line bg-card px-6 py-8">
+        {/* ブランド */}
+        <div className="mb-6 flex flex-col items-center gap-3">
+          <BrandIcon size={52} />
+          <span className="font-[family-name:var(--font-fredoka)] text-[24px] font-semibold leading-none text-ink">
+            Lapsy
+          </span>
+          <span className="text-[11px] text-ink-dim">
+            ラップで積み上げる、資格学習タイマー
+          </span>
+        </div>
+
+        <h1 className="mb-6 text-center font-[family-name:var(--font-fredoka)] text-[17px] font-medium text-ink">
+          招待を受け付けできません
+        </h1>
+        <p
+          role="alert"
+          className="mb-6 flex items-start gap-2 rounded-ctl border border-dashed border-error px-3 py-2.5 text-xs text-error"
+        >
+          {message}
+        </p>
+        <p className="text-center">
+          <a
+            href="/login"
+            className="text-xs text-ink underline underline-offset-2"
+          >
+            ログイン画面へ
+          </a>
+        </p>
+      </div>
     </main>
   );
 }

@@ -1,35 +1,13 @@
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
+import { BrandIcon } from "@/components/brand-icon";
 import { LoginForm } from "./login-form";
 
-// ログインページ（LAP-002 §4-A / ワイヤーフレーム docs/wireframes/lapsy-login-wireframe.html 反映）。
+// ログインページ（LAP-002 §4-A / ワイヤーフレーム docs/wireframes/13_login.html 反映）。
 // センタリングのカード型。メール+パスワードを server action で送信し、
 // 認証失敗はフォーム上部にまとめて表示（どちらが誤りかは明示しない＝アカウント存在の推測防止）。
 // 招待制のため新規登録導線は設けない。
-
-function BrandIcon() {
-  return (
-    <svg
-      width="112"
-      height="112"
-      viewBox="0 0 512 512"
-      role="img"
-      aria-label="Lapsy"
-    >
-      <rect width="512" height="512" rx="120" fill="#54C3F1" />
-      <circle cx="256" cy="256" r="116" fill="#FFFFFF" />
-      <ellipse cx="216.56" cy="297.76" rx="34.8" ry="18.56" fill="#DDEFFB" opacity="0.85" />
-      <ellipse cx="295.44" cy="216.56" rx="23.2" ry="15.08" fill="#EAF6FD" />
-      <path
-        d="M366.2,134.88 L373.48,153.6 L392.2,160.88 L373.48,168.16 L366.2,186.88 L358.92,168.16 L340.2,160.88 L358.92,153.6 Z"
-        fill="#FFC93C"
-      />
-      <circle cx="142.32" cy="207.28" r="6.5" fill="#FFFFFF" opacity="0.9" />
-      <circle cx="192.2" cy="135.36" r="4.5" fill="#FFFFFF" opacity="0.75" />
-    </svg>
-  );
-}
 
 export default async function LoginPage({
   searchParams,
@@ -60,14 +38,14 @@ export default async function LoginPage({
 
   return (
     <main className="flex min-h-[80vh] flex-col items-center justify-center">
-      <div className="w-full max-w-[420px] rounded-2xl border border-gray-300 bg-white p-8">
+      <div className="w-full max-w-[420px] rounded-card border border-line bg-card p-8">
         {/* ブランド */}
         <div className="mb-8 flex flex-col items-center gap-3">
           <BrandIcon />
-          <span className="font-[family-name:var(--font-fredoka)] text-[26px] font-semibold leading-none text-gray-700">
+          <span className="font-[family-name:var(--font-fredoka)] text-[26px] font-semibold leading-none text-ink">
             Lapsy
           </span>
-          <span className="text-[11px] text-gray-500">
+          <span className="text-[11px] text-ink-dim">
             ラップで積み上げる、資格学習タイマー
           </span>
         </div>
@@ -76,7 +54,7 @@ export default async function LoginPage({
         {accepted ? (
           <p
             role="status"
-            className="mb-6 rounded-xl border border-gray-300 bg-gray-50 px-3 py-2.5 text-xs text-gray-600"
+            className="mb-6 rounded-ctl border border-dashed border-line-2 bg-[#EDEDED] px-3 py-2.5 text-xs leading-relaxed text-ink"
           >
             登録が完了しました。設定したパスワードでログインしてください。
           </p>
@@ -86,7 +64,7 @@ export default async function LoginPage({
         {reset ? (
           <p
             role="status"
-            className="mb-6 rounded-xl border border-gray-300 bg-gray-50 px-3 py-2.5 text-xs text-gray-600"
+            className="mb-6 rounded-ctl border border-dashed border-line-2 bg-[#EDEDED] px-3 py-2.5 text-xs leading-relaxed text-ink"
           >
             パスワードを再設定しました。新しいパスワードでログインしてください。
           </p>
@@ -96,7 +74,7 @@ export default async function LoginPage({
         {error ? (
           <p
             role="alert"
-            className="mb-6 flex items-start gap-2 rounded-xl border border-dashed border-gray-500 px-3 py-2.5 text-xs text-gray-600"
+            className="mb-6 flex items-start gap-2 rounded-ctl border border-dashed border-error px-3 py-2.5 text-xs text-error"
           >
             メールアドレスまたはパスワードが正しくありません。
           </p>
@@ -105,7 +83,7 @@ export default async function LoginPage({
         <LoginForm action={authenticate} />
 
         {/* 招待制の注記（新規登録導線は置かない） */}
-        <p className="mt-6 text-center text-[11px] leading-relaxed text-gray-500">
+        <p className="mt-6 text-center text-[11px] leading-relaxed text-ink-dim">
           ご利用は招待制です。
           <br />
           アカウントが必要な場合は管理者へご連絡ください。

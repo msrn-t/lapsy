@@ -93,6 +93,36 @@ describe("scorePasswordStrength (表示専用・LAP-016 §3.2)", () => {
     // 11 文字・小文字+空白(記号扱い) = variety 2, length 1 → 3 = medium
     expect(scorePasswordStrength("abc def ghi")).toBe("medium");
   });
+
+  // 長さスコアの境界（>=12 のステップ）を単一文字種で固定する。
+  // variety を 1 に固定し length 1→2 の遷移だけで weak→medium が起きることを確認。
+  it("11 文字・単一文字種は weak（length 1 + variety 1 = 2・長さ境界 直下）", () => {
+    expect(scorePasswordStrength("abcdefghijk")).toBe("weak");
+  });
+
+  it("12 文字・単一文字種は medium（length 2 + variety 1 = 3・長さ境界 ちょうど）", () => {
+    // 11→12 の 1 文字増だけで weak→medium に切り替わる（>=12 ステップ）。
+    expect(scorePasswordStrength("abcdefghijkl")).toBe("medium");
+  });
+
+  // スコア境界 4/5（medium/strong のちょうど境目）を別の組合せでも固定する。
+  it("9 文字・小文字+大文字+数字（3 種）は medium（length 1 + variety 3 = 4・上限側の medium）", () => {
+    expect(scorePasswordStrength("Abcdefg12")).toBe("medium");
+  });
+
+  it("12 文字・小文字+数字（2 種）は medium（length 2 + variety 2 = 4・境界 4）", () => {
+    expect(scorePasswordStrength("abcdefghij12")).toBe("medium");
+  });
+
+  it("12 文字・小文字+大文字+数字（3 種）は strong（length 2 + variety 3 = 5・境界 5）", () => {
+    expect(scorePasswordStrength("Abcdefghij12")).toBe("strong");
+  });
+
+  // 非 ASCII（アクセント付き文字）は [^A-Za-z0-9] にマッチし記号として variety に数える。
+  it("非 ASCII 文字は記号扱いで variety に数える（ñ 含む 13 文字 → strong）", () => {
+    // contraseña123: 小文字 + 数字 + ñ(記号扱い) = variety 3, length 2 → 5 = strong
+    expect(scorePasswordStrength("contraseña123")).toBe("strong");
+  });
 });
 
 describe("passwordsMatch (確認フィールド用・純関数)", () => {

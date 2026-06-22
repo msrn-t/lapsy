@@ -215,4 +215,16 @@ describe("segmentProgressRatio（現セグメント進捗率・LAP-015 timer-rin
       segmentProgressRatio({ ...base, segmentElapsedSec: 2000, segmentTotalSec: 1500 }),
     ).toBe(1);
   });
+
+  it("segmentTotalSec が負値（防御）は 1（0 除算/負割回避）", () => {
+    expect(
+      segmentProgressRatio({ ...base, segmentElapsedSec: 0, segmentTotalSec: -100 }),
+    ).toBe(1);
+  });
+
+  it("segmentElapsedSec が負値（防御・時計巻き戻り想定）は 0 にクランプ", () => {
+    expect(
+      segmentProgressRatio({ ...base, segmentElapsedSec: -50, segmentTotalSec: 1500 }),
+    ).toBe(0);
+  });
 });
